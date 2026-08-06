@@ -115,3 +115,23 @@ class TestAdaptorler:
     def test_eksik_sutun_hatasi(self, df):
         with pytest.raises(ValueError):
             self._calistir("betimsel", df, {"kolonlar": "yok"})
+
+
+class TestAnalysisDialog:
+    def test_form_alanlari(self, qtbot, df):
+        from agrista.gui.analysis_dialog import AnalysisDialog
+        from agrista.gui.registry import REGISTRY
+        spec = next(s for s in REGISTRY if s.key == "tek_orneklem_t")
+        dlg = AnalysisDialog(spec, df)
+        qtbot.addWidget(dlg)
+        assert dlg.windowTitle() == "Tek örneklem t-testi"
+        degerler = dlg.degerler()
+        assert "kolon" in degerler and "deger" in degerler
+
+    def test_kolon_secenekleri_veriden(self, qtbot, df):
+        from agrista.gui.analysis_dialog import AnalysisDialog
+        from agrista.gui.registry import REGISTRY
+        spec = next(s for s in REGISTRY if s.key == "tek_orneklem_t")
+        dlg = AnalysisDialog(spec, df)
+        qtbot.addWidget(dlg)
+        assert dlg.widget("kolon").count() == len(df.columns)
