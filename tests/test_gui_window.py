@@ -81,3 +81,13 @@ class TestAnalizAkisi:
         spec = REGISTRY[0]
         pencere.analiz_calistir(spec)
         assert pencere.sonuc_paneli.toPlainText() == ""
+
+
+class TestGrafikEntegrasyon:
+    def test_grafik_sekmesi_panel(self, pencere):
+        from agrista.gui.chart_view import ChartPanel
+        assert isinstance(pencere.grafik_paneli, ChartPanel)
+
+    def test_veri_acilinca_panel_guncellenir(self, pencere, tmp_path):
+        pencere.open_file(_csv(tmp_path))
+        assert pencere.grafik_paneli.df is pencere.df

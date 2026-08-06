@@ -12,6 +12,7 @@ from PySide6.QtWidgets import (QDialog, QFileDialog, QMainWindow, QMenu,
 
 from agrista.data import load_csv, load_excel
 from agrista.gui.analysis_dialog import AnalysisDialog
+from agrista.gui.chart_view import ChartPanel
 from agrista.gui.data_model import DataFrameModel
 from agrista.gui.registry import REGISTRY, format_result
 from agrista.gui.theme import tema_qss
@@ -40,11 +41,10 @@ class MainWindow(QMainWindow):
 
         self.sonuc_paneli = QTextEdit()
         self.sonuc_paneli.setReadOnly(True)
-        self.grafik_sekmesi = QTextEdit()  # Plan 3'te canvas ile değişir
-        self.grafik_sekmesi.setReadOnly(True)
+        self.grafik_paneli = ChartPanel()
         sekmeler = QTabWidget()
         sekmeler.addTab(self.sonuc_paneli, "Sonuçlar")
-        sekmeler.addTab(self.grafik_sekmesi, "Grafik")
+        sekmeler.addTab(self.grafik_paneli, "Grafik")
 
         bolucu = QSplitter(Qt.Horizontal)
         bolucu.addWidget(self.tablo)
@@ -113,6 +113,7 @@ class MainWindow(QMainWindow):
             raise ValueError(f"Desteklenmeyen uzantı: {p.suffix}")
         self.df = veri.dataframe
         self.model.set_dataframe(self.df)
+        self.grafik_paneli.set_dataframe(self.df)
         mesaj = f"{len(self.df)} satır × {self.df.shape[1]} sütun — {p.name}"
         self.statusBar().showMessage(mesaj)
         if not sessiz:
