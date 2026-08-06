@@ -2108,3 +2108,65 @@ def twostep_cluster(
         "bic": bic_values,
         "n": int(n),
     }
+
+
+def glm_univariate(data: pd.DataFrame, response: str,
+                   between_factors: list, covariates: Optional[list] = None,
+                   ss_type: int = 3, posthoc: Optional[str] = "tukey",
+                   alpha: float = 0.05) -> dict:
+    """Genel Doğrusal Model — tek değişkenli (faktöriyel + kovaryeteli).
+
+    Premium Program GLM Univariate denkliği: Tip I/II/III kareler toplamı,
+    kısmi eta-kare efekt büyüklükleri ve tek faktörde post-hoc.
+    """
+    import statsmodels.formula.api as smf
+    from statsmodels.stats.anova import anova_lm
+
+    cols = [response] + list(between_factors) + list(covariates or [])
+    _check_columns(data, cols)
+    work = data[cols].dropna()
+    if work.empty:
+        raise ValueError("GLM için geçerli veri yok")
+    for f in between_factors:
+        if work[f].nunique() < 2:
+            raise ValueError(f"'{f}' faktörü en az 2 düzey içermeli")
+
+    terms = [f"C({f}, Sum)" for f in between_factors]
+    terms += list(covariates or [])
+    if not terms:
+        raise ValueError("En az bir faktör veya kovaryet gerekli")
+    model = smf.ols(f"{response} ~ {' + '.join(terms)}", data=work).fit()
+    anova = anova_lm(model, typ=ss_type)
+    ss_resid = float(anova["sum_sq"].iloc[-1])
+    if ss_resid <= 0:
+        raise ValueError("Artık kareler toplamı hesaplanamadı (yetersiz df)")
+
+    table = []
+    for name, row in anova.iterrows():
+        if name in ("Intercept", "Residual"):
+            continue
+        table.append({
+            "source": str(name),
+            "ss": float(row["sum_sq"]),
+            "df": int(row["df"]),
+            "ms": float(row["sum_sq"] / row["df"]),
+            "f_value": float(row["F"]) if not np.isnan(row["F"]) else None,
+            "p_value": float(row["PR(>F)"]) if not np.isnan(row["PR(>F)"]) else None,
+        })
+    effect_sizes = {t["source"]: float(t["ss"] / (t["ss"] + ss_resid))
+                    for t in table if t["f_value"] is not None}
+
+    posthoc_result = None
+    if posthoc in ("tukey", "duncan") and len(between_factors) == 1:
+        fn = posthoc_tukey if posthoc == "tukey" else posthoc_duncan
+        posthoc_result = fn(work, response, between_factors[0], alpha)
+
+    return {
+        "model": "GLM Univariate",
+        "ss_type": int(ss_type),
+        "anova_table": table,
+        "effect_sizes": effect_sizes,
+        "r_squared": float(model.rsquared),
+        "posthoc": posthoc_result,
+        "n_obs": int(len(work)),
+    }
