@@ -362,14 +362,51 @@ class AgristaPlotter:
         plt.tight_layout()
         return fig
     
-    def save(self, filename: str, fig: Optional[plt.Figure] = None):
-        """Grafiği dosyaya kaydet.
-        
-        fig belirtilmezse aktif figür kaydedilir.
-        """
+    def save(self, filename: str, fig: Optional[plt.Figure] = None,
+             dpi: Optional[int] = None):
+        """Grafiği dosyaya kaydet (varsayılan dpi temadan gelir)."""
         target = fig if fig is not None else plt.gcf()
-        target.savefig(filename, dpi=150, bbox_inches="tight")
+        hedef_dpi = dpi or self._theme["dpi"]
+        target.savefig(filename, dpi=hedef_dpi, bbox_inches="tight")
         print(f"Grafik kaydedildi: {filename}")
+
+    def save_multi(self, filename_base: str,
+                   figs: list, fmts: tuple = ("png", "svg")) -> list:
+        """Birden çok grafiği birden çok formatta kaydeder; yolları döndürür."""
+        yollar = []
+        for i, fig in enumerate(figs):
+            for fmt in fmts:
+                yol = f"{filename_base}_{i + 1}.{fmt}"
+                fig.savefig(yol, dpi=self._theme["dpi"],
+                            bbox_inches="tight")
+                yollar.append(yol)
+        print(f"{len(yollar)} grafik dosyası kaydedildi.")
+        return yollar
+
+    def export_html(self, fig: plt.Figure, path: str,
+                    title: str = "Agrista Grafik"):
+        """Grafiği tek dosyalık HTML raporu olarak dışa aktarır."""
+        import base64
+        import io
+        buf = io.BytesIO()
+        fig.savefig(buf, format="png", dpi=self._theme["dpi"],
+                    bbox_inches="tight")
+        b64 = base64.b64encode(buf.getvalue()).decode("ascii")
+        html = (
+            "<!DOCTYPE html><html lang=\"tr\"><head><meta charset=\"utf-8\">"
+            f"<title>{title}</title><style>"
+            "body{margin:0;padding:24px;font-family:sans-serif;"
+            "background:#f4f6f8}h1{color:#2E86AB;font-size:20px}"
+            ".kart{background:#fff;border:1px solid #dfe3e8;border-radius:"
+            "8px;padding:16px;max-width:960px;margin:0 auto}"
+            "img{max-width:100%;height:auto}</style></head><body>"
+            f"<div class=\"kart\"><h1>{title}</h1>"
+            f"<img src=\"data:image/png;base64,{b64}\" alt=\"{title}\"/>"
+            "<p style=\"color:#888;font-size:12px\">Agrista ile "
+            "üretilmiştir.</p></div></body></html>")
+        with open(path, "w", encoding="utf-8") as fh:
+            fh.write(html)
+        print(f"HTML raporu kaydedildi: {path}")
     
     @staticmethod
     def close():
