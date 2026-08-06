@@ -2170,3 +2170,89 @@ def glm_univariate(data: pd.DataFrame, response: str,
         "posthoc": posthoc_result,
         "n_obs": int(len(work)),
     }
+
+
+def _helmert_orthogonal(k: int) -> np.ndarray:
+    """k koşul için (k-1)×k ortonormal kontrast matrisi (Mauchly için)."""
+    C = np.zeros((k - 1, k))
+    for i in range(1, k):
+        C[i - 1, :i] = 1.0 / i
+        C[i - 1, i] = -1.0
+    Q, _ = np.linalg.qr(C.T)
+    return Q.T
+
+
+def glm_repeated_measures(data: pd.DataFrame, response_cols: list,
+                          subject_col: str,
+                          between_factor: Optional[str] = None,
+                          alpha: float = 0.05) -> dict:
+    """Genel Doğrusal Model — tekrarlı ölçümler (univariate yaklaşım).
+
+    Wide formatta her sütun bir ölçüm zamanıdır. Mauchly küresellik testi,
+    Greenhouse-Geisser ve Huynh-Feldt düzeltmeleri raporlanır.
+    """
+    from statsmodels.stats.anova import AnovaRM
+
+    k = len(response_cols)
+    if k < 3:
+        raise ValueError("Tekrarlı ölçüm için en az 3 koşul gerekli")
+    ekstra = [between_factor] if between_factor else []
+    _check_columns(data, list(response_cols) + [subject_col] + ekstra)
+    work = data[list(response_cols) + [subject_col] + ekstra].dropna()
+    n_subj = work[subject_col].nunique()
+    if n_subj < 2:
+        raise ValueError("Tekrarlı ölçüm için en az 2 denek gerekli")
+
+    # Within-subject F testi (AnovaRM)
+    long = work.melt(id_vars=[subject_col] + ekstra,
+                     value_vars=list(response_cols),
+                     var_name="kosul", value_name="yanit")
+    aov = AnovaRM(long, depvar="yanit", subject=subject_col,
+                  within=["kosul"], aggregate_func="mean").fit()
+    satir = aov.anova_table.iloc[0]
+    f_deger = float(satir["F Value"])
+    df1 = float(satir["Num DF"])
+    df2 = float(satir["Den DF"])
+    p_deger = float(satir["Pr > F"])
+
+    # Mauchly küresellik testi (ortonormal kontrast özdeğerleri)
+    S = work[list(response_cols)].cov(ddof=1).to_numpy()
+    M = _helmert_orthogonal(k) @ S @ _helmert_orthogonal(k).T
+    eig = np.maximum(np.linalg.eigvalsh(M), 1e-12)
+    p = k - 1
+    W = float(np.prod(eig) / (np.sum(eig) / p) ** p)
+    df_mauchly = p * (p + 1) / 2 - 1
+    chi2 = -((n_subj - 1) - (2 * p * p + p + 2) / (6 * p)) * np.log(W)
+    p_mauchly = float(1 - stats.chi2.cdf(chi2, df_mauchly))
+
+    # Epsilon düzeltmeleri
+    eps_gg = float((np.sum(eig) ** 2) / (p * np.sum(eig ** 2)))
+    eps_hf = float(min(1.0, (n_subj * p * eps_gg - 2)
+                       / (p * (n_subj - 1 - p * eps_gg))))
+    corrected = {}
+    for ad, eps in (("greenhouse_geisser", eps_gg), ("huynh_feldt", eps_hf)):
+        corrected[ad] = {
+            "df1": float(df1 * eps), "df2": float(df2 * eps),
+            "p_value": float(1 - stats.f.cdf(f_deger, df1 * eps, df2 * eps)),
+        }
+
+    between_effect = None
+    if between_factor:
+        denek_ortalama = work.groupby([subject_col, between_factor])[
+            list(response_cols)].mean().mean(axis=1).reset_index()
+        denek_ortalama.columns = [subject_col, between_factor, "ortalama"]
+        gruplar = [denek_ortalama.loc[denek_ortalama[between_factor] == g,
+                                      "ortalama"]
+                   for g in sorted(denek_ortalama[between_factor].unique())]
+        between_effect = anova_one_way(*gruplar)
+
+    return {
+        "model": "GLM Repeated Measures",
+        "within_effect": {"f_value": f_deger, "df1": df1, "df2": df2,
+                          "p_value": p_deger},
+        "mauchly": {"w": W, "chi2": float(chi2), "p_value": p_mauchly},
+        "epsilon": {"greenhouse_geisser": eps_gg, "huynh_feldt": eps_hf},
+        "corrected": corrected,
+        "between_effect": between_effect,
+        "n_subjects": int(n_subj),
+    }

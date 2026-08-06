@@ -3,7 +3,8 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from agrista.analysis import anova_one_way, glm_univariate
+from agrista.analysis import (anova_one_way, glm_repeated_measures,
+                              glm_univariate)
 
 
 def _two_factor_df(seed=11):
@@ -78,3 +79,55 @@ class TestGlmUnivariate:
         df["sabit"] = "a"
         with pytest.raises(ValueError):
             glm_univariate(df, response="verim", between_factors=["sabit"])
+
+
+def _repeated_df(seed=5):
+    rng = np.random.default_rng(seed)
+    rows = []
+    for denek in range(12):
+        taban = rng.normal(0, 1.0)
+        for t, ad in enumerate(["t1", "t2", "t3", "t4"]):
+            rows.append({"denek": f"d{denek}", "zaman": ad,
+                         "skor": 5 + 0.8 * t + taban + rng.normal(0, 0.3)})
+    return pd.DataFrame(rows).pivot(index="denek", columns="zaman",
+                                    values="skor").reset_index()
+
+
+class TestGlmRepeatedMeasures:
+    def test_zaman_efekti_anlamli(self):
+        df = _repeated_df()
+        res = glm_repeated_measures(df, response_cols=["t1", "t2", "t3", "t4"],
+                                    subject_col="denek")
+        assert res["within_effect"]["p_value"] < 0.05
+        assert res["n_subjects"] == 12
+
+    def test_mauchly_ve_epsilon_araliklari(self):
+        df = _repeated_df()
+        res = glm_repeated_measures(df, response_cols=["t1", "t2", "t3", "t4"],
+                                    subject_col="denek")
+        assert 0 < res["mauchly"]["w"] <= 1
+        assert 0 <= res["mauchly"]["p_value"] <= 1
+        eps = res["epsilon"]
+        assert 0 < eps["greenhouse_geisser"] <= 1
+        assert 0 < eps["huynh_feldt"] <= 1
+
+    def test_duzeltilmis_p_degerleri(self):
+        df = _repeated_df()
+        res = glm_repeated_measures(df, response_cols=["t1", "t2", "t3", "t4"],
+                                    subject_col="denek")
+        for anahtar in ("greenhouse_geisser", "huynh_feldt"):
+            corr = res["corrected"][anahtar]
+            assert corr["df1"] <= res["within_effect"]["df1"]
+            assert 0 <= corr["p_value"] <= 1
+
+    def test_az_kosul_hatasi(self):
+        df = _repeated_df()
+        with pytest.raises(ValueError):
+            glm_repeated_measures(df, response_cols=["t1", "t2"],
+                                  subject_col="denek")
+
+    def test_tek_denek_hatasi(self):
+        df = _repeated_df().head(1)
+        with pytest.raises(ValueError):
+            glm_repeated_measures(df, response_cols=["t1", "t2", "t3", "t4"],
+                                  subject_col="denek")
