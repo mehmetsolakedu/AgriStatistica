@@ -6,6 +6,8 @@ import numpy as np
 import pandas as pd
 import pytest
 
+pytest.importorskip("PySide6")
+
 
 def _df():
     return pd.DataFrame({"a": [1.0, 2.0, 3.0], "b": ["x", "y", "z"]})

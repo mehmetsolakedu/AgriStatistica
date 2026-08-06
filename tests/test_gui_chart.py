@@ -5,6 +5,8 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 import pandas as pd
 import pytest
 
+pytest.importorskip("PySide6")
+
 
 @pytest.fixture
 def df():

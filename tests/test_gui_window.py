@@ -2,6 +2,8 @@
 import pandas as pd
 import pytest
 
+pytest.importorskip("PySide6")
+
 
 @pytest.fixture
 def pencere(qtbot):
