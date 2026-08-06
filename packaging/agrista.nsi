@@ -21,7 +21,7 @@ Section "Kurulum"
   WriteUninstaller "$INSTDIR\Kaldir.exe"
 SectionEnd
 
-Section "Kaldırıcı"
+Section "Uninstall"
   Delete "$INSTDIR\Kaldir.exe"
   RMDir /r "$INSTDIR"
 SectionEnd
