@@ -317,8 +317,7 @@ Test kaydı: `tests/test_premium_wave4.py` (75+ test).
 boşluk kalmadı. Kapsam dışı bırakılanlar yalnızca terminal ortamında
 karşılığı olmayan GUI öğeleridir: Edit/View/Window menüleri, Chart
 Builder sürükle-bırak arayüzü, Interactive grafikler, Extensions Hub.
-Kısmi kalanlar: karmaşık anket Taylor
-doğrusallaştırması (2.18).
+Kısmi kalan: yok. Premium Program Base denkliği tamamlandı (Güncelleme 5).
 
 ## Güncelleme 5 — Kalan Boşlukların Kapatılması
 
@@ -385,3 +384,27 @@ Test kaydı: `tests/test_premium_glmm.py`; menü akışları
 `menu_smoke_test.py` üzerinden `tests/test_menu_flows.py`'de
 parametrize edilir.
 
+### Karmaşık Anket (Complex Samples — Taylor Doğrusallaştırması)
+
+Analiz implementasyonu — `agrista/survey`:
+- ✅ `survey_design` — tasarım tanımı (PSU, tabaka, ağırlık, FPC);
+  tek PSU'lu tabakalarda varyans hatası, eksik sütun doğrulaması
+- ✅ `_taylor_variance` — lineer değişkenin PSU toplamları üzerinden
+  tabakalı Taylor varyansı; FPC desteği (1 - n_h/N_h)
+- ✅ `svy_mean` / `svy_total` / `svy_ratio` — ağırlıklı ortalama,
+  toplam ve oran tahminleri; Taylor SE, %95 CI, DEFF
+- ✅ `survey_logistic` — ağırlıklı GLM + PSU-kümelenmiş sandwich
+  kovaryans (`cov_type="cluster"`); birinci derece Taylor denkliği
+
+CLI — `agrista/cli`:
+- ✅ `agrista svymean` / `agrista svyratio` / `agrista svylogit`
+  komutları; çıktı yazdırıcıları `_print_svy_result` ve
+  `_print_svylogit_result`
+- ✅ YENİ menü kategorisi `[20] 🧮 Karmaşık Örneklem (Complex Samples)`:
+  `[1] Anket ortalaması/toplamı (Taylor)`,
+  `[2] Anket oranı (Taylor)`,
+  `[3] Anket lojistik regresyonu` (kategori sayısı 19 → 20)
+
+Test kaydı: `tests/test_premium_survey.py`; menü akışları
+`menu_smoke_test.py` üzerinden `tests/test_menu_flows.py`'de
+parametrize edilir (58 → 61 akış).

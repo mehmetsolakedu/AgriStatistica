@@ -15,6 +15,7 @@ import pandas as pd
 import numpy as np
 
 from agrista.models import glmm as glmm_fit
+from agrista.survey import svy_mean, svy_ratio, survey_logistic
 
 
 def _load_file(filepath: str, sheet: int = 0):
@@ -1233,6 +1234,11 @@ def _build_menu_structure():
             ("Bitki Koruma — AUDPC (hastalık ilerlemesi)", _menu_audpc),
             ("Tarım Ekonomisi — DEA etkinlik analizi", _menu_dea),
         ]),
+        ("🧮 Karmaşık Örneklem (Complex Samples)", [
+            ("Anket ortalaması/toplamı (Taylor)", _menu_svymean),
+            ("Anket oranı (Taylor)", _menu_svyratio),
+            ("Anket lojistik regresyonu", _menu_svylogit),
+        ]),
     ]
 
 
@@ -1420,6 +1426,48 @@ def _menu_dea():
     inputs = pd.read_csv(girdi, index_col=0)
     outputs = pd.read_csv(cikti, index_col=0)
     _print_dea_result(dea_efficiency(inputs, outputs, model=model), model)
+
+
+def _menu_svymean():
+    """Menü: Anket ortalaması/toplamı (Taylor linearizasyonu)."""
+    path = _ask_file("Veri dosyası yolu")
+    df = _load_file(path).dataframe
+    degisken = _ask_column(df, "Tahmin edilecek değişken")
+    agirlik = _prompt_or_eof("Ağırlık sütunu (yoksa boş bırak)", default="")
+    psu = _prompt_or_eof("PSU sütunu (yoksa boş bırak)", default="")
+    tabaka = _prompt_or_eof("Tabaka sütunu (yoksa boş bırak)", default="")
+    design = _build_svy_design(df, agirlik or None, psu or None,
+                               tabaka or None, None)
+    result = svy_mean(design, degisken)
+    _print_svy_result(result, "Anket ortalaması")
+
+
+def _menu_svyratio():
+    """Menü: Anket oranı (Taylor linearizasyonu)."""
+    path = _ask_file("Veri dosyası yolu")
+    df = _load_file(path).dataframe
+    pay = _ask_column(df, "Pay değişkeni")
+    payda = _ask_column(df, "Payda değişkeni")
+    psu = _prompt_or_eof("PSU sütunu (yoksa boş bırak)", default="")
+    design = _build_svy_design(df, None, psu or None, None, None)
+    result = svy_ratio(design, numerator=pay, denominator=payda)
+    _print_svy_result(result, "Anket oranı")
+
+
+def _menu_svylogit():
+    """Menü: Anket lojistik regresyonu."""
+    path = _ask_file("Veri dosyası yolu")
+    df = _load_file(path).dataframe
+    yanit = _ask_column(df, "0/1 yanıt değişkeni")
+    degiskenler = _prompt_or_eof("Açıklayıcılar (virgülle)")
+    psu = _ask_column(df, "PSU sütunu")
+    if not degiskenler:
+        raise click.exceptions.Abort()
+    design = _build_svy_design(df, None, psu, None, None)
+    result = survey_logistic(design, response=yanit,
+                             predictors=[c.strip()
+                                         for c in degiskenler.split(",")])
+    _print_svylogit_result(result)
 
 
 def _default_output(path: str, suffix: str = "_donusmus") -> str:

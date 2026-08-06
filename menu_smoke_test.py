@@ -1,4 +1,4 @@
-"""Agrista etkileşimli menü duman testi — 19 kategorinin tüm işlemleri
+"""Agrista etkileşimli menü duman testi — 20 kategorinin tüm işlemleri
 CliRunner ile betikli girdi üzerinden uçtan uca çalıştırılır."""
 
 import os
@@ -164,6 +164,16 @@ pd.DataFrame({"isletme": ["C1", "C2", "C3", "C4"],
               "urun": [100, 150, 140, 130]}).to_csv(
     f"{TMP}/dea_out.csv", index=False)
 
+svy = pd.DataFrame({
+    "psu": np.repeat(np.arange(12), 5),
+    "tabaka": np.repeat([0] * 6 + [1] * 6, 5),
+    "w": rng.uniform(0.5, 2, 60),
+    "y": rng.normal(50, 5, 60),
+    "x": rng.uniform(1, 3, 60),
+    "b": rng.integers(0, 2, 60),
+})
+svy.to_csv(f"{TMP}/svy.csv", index=False)
+
 # ---------------------------------------------------------------------------
 # Menü akışları: (kategori, işlem, başlık, girdi, beklenen çıktı)
 # ---------------------------------------------------------------------------
@@ -315,6 +325,13 @@ FLOWS = [
      f"19\n1\n{TMP}/audpc.csv\nzaman\nsiddet\n0\n", "AUDPC"),
     ("[19] Uzman Branş", "DEA",
      f"19\n2\n{TMP}/dea_in.csv\n{TMP}/dea_out.csv\nCCR\n0\n", "DEA Etkinlik"),
+
+    ("[20] Karmaşık Örneklem", "Anket ortalaması/toplamı (Taylor)",
+     f"20\n1\n{TMP}/svy.csv\ny\n\n\n\n0\n", "Anket ortalaması"),
+    ("[20] Karmaşık Örneklem", "Anket oranı (Taylor)",
+     f"20\n2\n{TMP}/svy.csv\ny\nx\n\n0\n", "Anket oranı"),
+    ("[20] Karmaşık Örneklem", "Anket lojistik regresyonu",
+     f"20\n3\n{TMP}/svy.csv\nb\ny\npsu\n0\n", "Survey Logistic"),
 ]
 
 # ---------------------------------------------------------------------------
