@@ -33,6 +33,7 @@ Write-Host "NSIS: $makensis"
 Write-Host "dist içeriği:"
 Get-ChildItem dist | ForEach-Object { Write-Host $_.Name }
 
-& $makensis packaging\agrista.nsi
+$repoRoot = (Get-Location).Path
+& $makensis "/DDIST_DIR=$repoRoot\dist" packaging\agrista.nsi
 Move-Item dist\Agrista-Setup.exe "dist\Agrista-$surum-Setup.exe" -Force
 Write-Host "== Tamam: dist\Agrista-$surum-Setup.exe =="

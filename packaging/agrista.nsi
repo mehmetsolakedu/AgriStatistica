@@ -1,6 +1,9 @@
 !include "MUI2.nsh"
+!ifndef DIST_DIR
+  !define DIST_DIR "dist"
+!endif
 Name "Agrista"
-OutFile "${__FILEDIR__}\..\dist\Agrista-Setup.exe"
+OutFile "${DIST_DIR}\Agrista-Setup.exe"
 InstallDir "$PROGRAMFILES64\Agrista"
 RequestExecutionLevel admin
 
@@ -12,7 +15,7 @@ RequestExecutionLevel admin
 
 Section "Kurulum"
   SetOutPath "$INSTDIR"
-  File /r "${__FILEDIR__}\..\dist\Agrista\*.*"
+  File /r "${DIST_DIR}\Agrista\*.*"
   CreateShortcut "$SMPROGRAMS\Agrista.lnk" "$INSTDIR\Agrista.exe"
   CreateShortcut "$DESKTOP\Agrista.lnk" "$INSTDIR\Agrista.exe"
   WriteUninstaller "$INSTDIR\Kaldir.exe"
