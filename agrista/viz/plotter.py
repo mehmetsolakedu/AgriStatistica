@@ -16,9 +16,15 @@ from typing import Optional
 class AgristaPlotter:
     """Tarımsal veri görselleştirme aracı."""
     
-    def __init__(self, style: str = "whitegrid"):
-        self.style = style
-        sns.set_style(style)
+    def __init__(self, style: str = "whitegrid", theme: str = None):
+        from agrista.viz.themes import apply_theme
+        self.theme = theme if theme is not None else "agrista"
+        t = apply_theme(self.theme)
+        self._theme = t
+        self._palette = list(t["palette"])
+        self.style = t["style"] if theme is not None else style
+        sns.set_style(self.style)
+        plt.rcParams.update(t["rc"])
         plt.rcParams["figure.figsize"] = (10, 6)
         plt.rcParams["font.size"] = 12
     
