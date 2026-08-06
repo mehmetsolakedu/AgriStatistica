@@ -450,3 +450,65 @@ Test kaydı: `tests/test_viz_cli.py`, `tests/test_viz_autoeda.py`,
 `tests/test_viz_interactive.py`, `tests/test_viz_premium.py`,
 `tests/test_viz_themes.py`; menü akışları `menu_smoke_test.py` üzerinden
 `tests/test_menu_flows.py`'de parametrize edilir (61 → 65 akış).
+
+## Güncelleme 7 — Masaüstü Dağıtım (Wave 1)
+
+PySide6 tabanlı masaüstü uygulaması tamamlandı; paketleme hattı,
+dağıtım iş akışı ve uygulama içi güncelleyici ile Wave 1 kapatıldı
+(sürüm 0.3.0 → 0.4.0).
+
+### GUI paket dosyaları (`agrista/gui`)
+
+- ✅ `theme.py` — açık/koyu tema QSS
+- ✅ `data_model.py` — `DataFrameModel` (veri tablosu)
+- ✅ `registry.py` — bağlı analiz kaydı (otomatik form üretimi)
+- ✅ `analysis_dialog.py` — analiz diyalogları (otomatik formlar)
+- ✅ `chart_view.py` — gömülü canvas grafik paneli
+- ✅ `main_window.py` — ana pencere (21 kategorili menü denkliği)
+- ✅ `updater.py` — uygulama içi güncelleme denetimi (stdlib)
+- ✅ `main.py` — `agrista-gui` giriş noktası
+
+### Bağlı analizler (16)
+
+- 📊 Betimsel: özet tablo, frekans, çapraz tablo (ki-kare), oran,
+  normallik (Shapiro-Wilk)
+- ⚖️ Ortalama karşılaştırma: tek örneklem t, bağımsız t, eşleştirilmiş t,
+  ANOVA + Tukey HSD, GLM (tek değişkenli), tekrarlı ölçümler (GLM)
+- 🔗 Korelasyon (Pearson/Spearman) · 📈 GEE · 🎯 ROC/AUC (Youden)
+- ⏳ Kaplan-Meier · 🌿 Bitki Koruma AUDPC
+
+### Grafik tipleri (12)
+
+Histogram, Kutu Grafiği, Saçılım, Violin, Raincloud, Ridge,
+Çubuk (ortalama), Çizgi, Pasta, Q-Q, Korelasyon Isı Haritası,
+Hata Çubuğu (gömülü canvas, açık/koyu tema desteği).
+
+### Paketleme hattı
+
+- ✅ PyInstaller spesifikasyonu: `packaging/agrista-gui.spec`
+- ✅ macOS: `packaging/build_macos.sh` → DMG
+- ✅ Windows: `packaging/agrista.nsi` (NSIS) +
+  `packaging/build_windows.ps1`
+- ✅ Sürüm manifestosu: `packaging/make_latest_json.py` →
+  `latest.json` (platform varlık URL'leri)
+- ✅ `release.yml` iş akışı: GitHub Releases'a otomatik yayın
+
+### Güncelleyici (`agrista/gui/updater.py`)
+
+- ✅ Saf fonksiyonlar: `parse_version`, `compare_versions`,
+  `build_update_info`
+- ✅ Ağ katmanı: `fetch_latest`, `check_update` (stdlib urllib,
+  Releases `latest.json`); ağ hatasında `None`
+- ✅ Dosya → “Güncellemeleri Denetle…” menü akışı: bilgi kutusu
+  (güncel / yeni sürüm / denetim yapılamadı)
+
+### Test kaydı
+
+`tests/test_gui_core.py`, `tests/test_gui_registry.py`,
+`tests/test_gui_chart.py`, `tests/test_gui_window.py`,
+`tests/test_gui_updater.py` (ağ katmanı mock'lu), `tests/test_packaging.py`.
+
+### Yerel macOS build kanıtı
+
+- ✅ `dist/Agrista.app` (PyInstaller üretimi, imza gerektirmez)
+- ✅ `dist/Agrista-*-macOS.dmg` (kurulum paketi)

@@ -333,7 +333,7 @@ def _print_glmm_result(result: dict):
 
 
 @click.group(invoke_without_command=True)
-@click.version_option(version="0.3.0", prog_name="Agrista")
+@click.version_option(version="0.4.0", prog_name="Agrista")
 @click.pass_context
 def main(ctx):
     """Agrista — Tarımsal İstatistik Yazılımı
@@ -1280,7 +1280,7 @@ def _print_banner():
     click.echo("")
     for line in _LOGO.splitlines():
         click.secho(line, fg="green", bold=True)
-    click.secho("      ── Tarımsal İstatistik Yazılımı · v0.3.0 ──",
+    click.secho("      ── Tarımsal İstatistik Yazılımı · v0.4.0 ──",
                 fg="yellow")
     click.echo("")
 
