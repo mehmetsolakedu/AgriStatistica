@@ -573,3 +573,92 @@ class TestSurveyCli:
                                           "--degisken", "y",
                                           "--psu", "yok"])
         assert result.exit_code != 0
+
+
+class TestGrafikMerkeziCli:
+    @pytest.fixture
+    def runner(self):
+        return CliRunner()
+
+    @pytest.fixture
+    def grafik_csv(self, tmp_path):
+        rng = np.random.default_rng(21)
+        df = pd.DataFrame({
+            "grup": rng.choice(["A", "B"], 40),
+            "x": rng.normal(0, 1, 40),
+            "y": rng.normal(5, 1, 40),
+            "skor": rng.uniform(0, 1, 40),
+        })
+        df["gercek"] = (df["skor"] > 0.5).astype(int)
+        csv = tmp_path / "grafik.csv"
+        df.to_csv(csv, index=False)
+        return str(csv)
+
+    def test_plot_histogram(self, runner, grafik_csv, tmp_path):
+        cikti = str(tmp_path / "h.png")
+        result = runner.invoke(cli_main, ["plot", grafik_csv,
+                                          "--tip", "histogram",
+                                          "--x", "y", "--cikti", cikti])
+        assert result.exit_code == 0, result.output
+        assert (tmp_path / "h.png").exists()
+
+    def test_plot_scatter(self, runner, grafik_csv, tmp_path):
+        cikti = str(tmp_path / "s.png")
+        result = runner.invoke(cli_main, ["plot", grafik_csv,
+                                          "--tip", "scatter",
+                                          "--x", "x", "--y", "y",
+                                          "--cikti", cikti])
+        assert result.exit_code == 0, result.output
+
+    def test_plot_hatali_tip(self, runner, grafik_csv, tmp_path):
+        result = runner.invoke(cli_main, ["plot", grafik_csv,
+                                          "--tip", "olmayan",
+                                          "--x", "y",
+                                          "--cikti", str(tmp_path / "x.png")])
+        assert result.exit_code != 0
+
+    def test_plot_roc(self, runner, grafik_csv, tmp_path):
+        cikti = str(tmp_path / "roc.png")
+        result = runner.invoke(cli_main, ["plot-roc", grafik_csv,
+                                          "--gercek", "gercek",
+                                          "--skor", "skor",
+                                          "--cikti", cikti])
+        assert result.exit_code == 0, result.output
+
+    def test_plot_forest(self, runner, tmp_path):
+        cikti = str(tmp_path / "f.png")
+        df = pd.DataFrame({"etki": [0.5, -0.2], "alt": [0.1, -0.6],
+                           "ust": [0.9, 0.2], "ad": ["a", "b"]})
+        csv = tmp_path / "forest.csv"
+        df.to_csv(csv, index=False)
+        result = runner.invoke(cli_main, ["plot-forest", str(csv),
+                                          "--etki", "etki", "--alt", "alt",
+                                          "--ust", "ust", "--etiket", "ad",
+                                          "--cikti", cikti])
+        assert result.exit_code == 0, result.output
+
+    def test_plot_survival(self, runner, tmp_path):
+        rng = np.random.default_rng(22)
+        df = pd.DataFrame({"zaman": rng.exponential(10, 40),
+                           "olay": rng.integers(0, 2, 40)})
+        csv = tmp_path / "surv.csv"
+        df.to_csv(csv, index=False)
+        result = runner.invoke(cli_main, ["plot-survival", str(csv),
+                                          "--zaman", "zaman",
+                                          "--olay", "olay",
+                                          "--cikti", str(tmp_path / "k.png")])
+        assert result.exit_code == 0, result.output
+
+    def test_dashboard_komutu(self, runner, grafik_csv, tmp_path):
+        cikti = str(tmp_path / "panel.html")
+        result = runner.invoke(cli_main, ["dashboard", grafik_csv,
+                                          "--cikti", cikti])
+        assert result.exit_code == 0, result.output
+        assert (tmp_path / "panel.html").exists()
+
+    def test_autoeda_komutu(self, runner, grafik_csv, tmp_path):
+        dizin = str(tmp_path / "eda")
+        result = runner.invoke(cli_main, ["autoeda", grafik_csv,
+                                          "--cikti-dir", dizin])
+        assert result.exit_code == 0, result.output
+        assert (tmp_path / "eda" / "report.html").exists()
