@@ -195,7 +195,7 @@ class TestCli:
     def test_version(self, runner):
         result = runner.invoke(cli_main, ["--version"])
         assert result.exit_code == 0
-        assert "0.2.0" in result.output
+        assert "0.3.0" in result.output
 
     def test_info_command(self, runner, csv_file):
         result = runner.invoke(cli_main, ["info", csv_file])

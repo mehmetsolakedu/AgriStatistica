@@ -12,7 +12,7 @@ Agrista, tarım verilerini toplamak, analiz etmek ve görselleştirmek için tas
 - 🔮 **Kestirim**: Hareketli ortalama, üstel düzleştirme, Holt-Winters, mevsimsel ayrıştırma, ARIMA
 - 📣 **Doğrudan Pazarlama**: RFM segmentasyonu, kampanya testi (control vs package), prospect profilleri
 - 🌾 **Tarımsal Modeller**: Verim tahmini, büyüme modelleri (lojistik, Gompertz, monomoleküler, Wood), risk analizi
-- 📉 **Görselleştirme**: Grafikler, haritalar, dashboard'lar
+- 📉 **Görselleştirme**: 16 grafik tipi (violin, ridge, raincloud, pair grid, orman, Bland-Altman, ROC, sağkalım, kontrol, artık, hexbin, yığılmış alan, büyüme eğrisi, eğim ve temel grafikler), 4 tema (agrista/yayın/minimal/karanlık), PNG/SVG/HTML dışa aktarım, plotly etkileşimli dashboard, auto-EDA (değişken türüne göre akıllı grafik önerisi + HTML keşif raporu)
 - 🔬 **Deneysel Tasarım**: Tarla denemeleri, RCBD/Latin kare/faktöriyel tasarımlar ve analizleri
 
 ### Alt Branş Modülleri
@@ -79,9 +79,12 @@ agrista glmm veriler.csv --yanit verim --sabitler gubre --grup parsel
 agrista svymean anket.csv --degisken gelir --agirlik w --psu psu
 agrista svyratio anket.csv --pay harcama --payda gelir --psu psu
 agrista svylogit anket.csv --yanit yanit --degiskenler gelir,yas --psu psu --agirlik w
+agrista plot veri.csv --tip scatter --x sulama --y verim --cikti s.png
+agrista dashboard veri.csv
+agrista autoeda veri.csv
 ```
 
-Ana menü kategorileri (Premium Program menü hiyerarşisiyle birebir, 20 kategori):
+Ana menü kategorileri (Premium Program menü hiyerarşisiyle birebir, 21 kategori):
 **[1] Dosya**, **[2] Betimsel İstatistikler** (özet, frekans, çapraz tablo,
 oran istatistikleri, normallik, Q-Q, P-P), **[3] Ortalamaların Karşılaştırılması**
 (tek örneklem, bağımsız, eşleştirilmiş t-testleri; ANOVA + Tukey; ortalama raporu),
@@ -99,7 +102,9 @@ lojistik/PLUM), **[9] Sınıflandırma** (ayrımsama, TwoStep kümeleme, k-NN),
 bölme, yineleme, devrik, yeniden yapılandırma, karşılaştırma, ölçüm düzeyi),
 **[19] Uzman Branş Modülleri** (Bitki Koruma, Tarım Ekonomisi vb.),
 **[20] Karmaşık Örneklem (Complex Samples)** (anket ortalaması/toplamı,
-anket oranı — Taylor doğrusallaştırması; anket lojistik regresyonu).
+anket oranı — Taylor doğrusallaştırması; anket lojistik regresyonu),
+**[21] Grafikler** (hızlı grafik, dağılım/tanı/model grafikleri,
+etkileşimli dashboard, otomatik keşif Auto-EDA).
 
 ## Lisans
 
