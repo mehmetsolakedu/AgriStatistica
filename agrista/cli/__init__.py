@@ -289,6 +289,20 @@ def _print_glm_result(result: dict):
                        f"p = {c['p_value']:.4f}")
 
 
+def _print_gee_result(result: dict):
+    click.echo(f"\n📈 {result['model']} — aile: {result['family']}, "
+               f"yapı: {result['cov_struct']}")
+    click.echo(f"   {result['n_groups']} grup, {result['n_obs']} gözlem, "
+               f"yakınsama: {'evet' if result['converged'] else 'hayır'}")
+    if result["qic"] is not None:
+        click.echo(f"   QIC = {result['qic']:.2f}")
+    click.echo("   Değişken        Katsayı     SE       z       p")
+    for ad, c in result["coefficients"].items():
+        click.echo(f"   {ad[:14]:<14} {c['coefficient']:9.4f} "
+                   f"{c['std_err']:8.4f} {c['z_value']:7.3f} "
+                   f"{c['p_value']:8.4f}")
+
+
 # ---------------------------------------------------------------------------
 # Komut grubu ve alt komutlar
 # ---------------------------------------------------------------------------
@@ -558,6 +572,31 @@ def glm(filepath: str, yanit: str, faktorler: str, kovaryeteler: str,
     except ValueError as e:
         raise click.ClickException(str(e))
     _print_glm_result(result)
+
+
+@main.command("gee")
+@click.argument("filepath")
+@click.option("--yanit", required=True, help="Bağımlı değişken sütunu")
+@click.option("--degiskenler", required=True, help="Virgülle ayrılmış açıklayıcılar")
+@click.option("--grup", required=True, help="Küme/grup sütunu")
+@click.option("--aile", default="gaussian",
+              type=click.Choice(["gaussian", "binomial", "poisson", "gamma"]))
+@click.option("--yapi", default="independent",
+              type=click.Choice(["independent", "exchangeable", "autoregressive"]))
+@click.option("--zaman", default=None, help="Zaman sütunu (autoregressive için)")
+def gee(filepath: str, yanit: str, degiskenler: str, grup: str,
+        aile: str, yapi: str, zaman: str):
+    """Genelleştirilmiş Tahmin Denklemleri (GEE)."""
+    from agrista.analysis import gee_model
+    df = _load_file(filepath).dataframe
+    try:
+        result = gee_model(df, response=yanit,
+                           covariates=[c.strip() for c in degiskenler.split(",")],
+                           group_col=grup, family=aile, cov_struct=yapi,
+                           time_col=zaman)
+    except ValueError as e:
+        raise click.ClickException(str(e))
+    _print_gee_result(result)
 
 
 @main.command()

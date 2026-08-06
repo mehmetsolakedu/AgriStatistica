@@ -455,3 +455,35 @@ class TestGlmCli:
         result = runner.invoke(cli_main, ["glm", glm_csv, "--yanit", "yok",
                                           "--faktorler", "grup"])
         assert result.exit_code != 0
+
+
+class TestGeeCli:
+    """GEE CLI komutu testleri: kümelenmiş veri için marjinal model."""
+
+    @pytest.fixture
+    def runner(self):
+        return CliRunner()
+
+    @pytest.fixture
+    def gee_csv(self, tmp_path):
+        rng = np.random.default_rng(1)
+        path = tmp_path / "gee.csv"
+        pd.DataFrame({"grup": np.repeat(np.arange(15), 6),
+                      "x": rng.normal(0, 1, 90),
+                      "y": rng.normal(0, 1, 90)}).to_csv(path, index=False)
+        return str(path)
+
+    def test_cli_gee(self, runner, gee_csv):
+        result = runner.invoke(cli_main, ["gee", gee_csv, "--yanit", "y",
+                                          "--degiskenler", "x",
+                                          "--grup", "grup",
+                                          "--yapi", "exchangeable"])
+        assert result.exit_code == 0
+        assert "GEE" in result.output
+
+    def test_cli_gee_hatali_aile(self, runner, gee_csv):
+        result = runner.invoke(cli_main, ["gee", gee_csv, "--yanit", "y",
+                                          "--degiskenler", "x",
+                                          "--grup", "grup",
+                                          "--aile", "negbin"])
+        assert result.exit_code != 0
