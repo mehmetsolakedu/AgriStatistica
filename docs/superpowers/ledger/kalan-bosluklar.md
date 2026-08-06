@@ -15,8 +15,8 @@ Yöntem: alt-ajan güdümlü, iki aşamalı inceleme (spec uyumu → kod kalites
 | Görev | Plan | Durum | Commit | Not |
 |---|---|---|---|---|
 | GLM Task 1: glm_univariate | glm.md | complete | 6c3bd14 | Sapma: anova tablosunda Intercept satırı da atlanıyor (gerekli) |
-| GLM Task 2: glm_repeated_measures | glm.md | pending | | |
-| GLM Task 3: CLI `agrista glm` | glm.md | pending | | |
+| GLM Task 2: glm_repeated_measures | glm.md | complete | 4feb408 | Plan kodu olduğu gibi geçti; import satırı birleştirildi |
+| GLM Task 3: CLI `agrista glm` | glm.md | complete | c8d3100 | `_load_file(...).dataframe`, `--tip` default str, testler sınıf idiyomuna uyarlandı |
 | GLM Task 4: Menü + smoke + log | glm.md | pending | | |
 | GEE Task 1: gee_model | gee.md | pending | | |
 | GEE Task 2: CLI `agrista gee` | gee.md | pending | | |
@@ -37,3 +37,14 @@ Yöntem: alt-ajan güdümlü, iki aşamalı inceleme (spec uyumu → kod kalites
 - Spec uyumu: dönüş şeması §4.1 ile birebir; Intercept satırı atlaması gerekli sapma. ✅
 - Kod kalitesi: mevcut fonksiyon-içi import ve dict şema deseniyle tutarlı; kritik bulgu yok. ✅
 - Taze kanıt: 7 passed; flake8 temiz.
+
+### GLM Task 2 (4feb408)
+- Spec uyumu: dönüş şeması §4.2 ile birebir (within/mauchly/epsilon/corrected/between/n_subjects). ✅
+- Kod kalitesi: Mauchly/HF formülleri clip korumalı; kritik bulgu yok. ✅
+- Taze kanıt: 12 passed (toplam GLM); regresyon 28 passed; flake8 temiz.
+
+### GLM Task 3 (c8d3100)
+- Spec uyumu: CLI seçenekleri §8.1 ile uyumlu; `glm --help` çalışıyor. ✅
+- Kod kalitesi: mevcut komut deseniyle tutarlı; `.dataframe` düzeltmesi gerekli (diğer komutlarda da böyle). ✅
+- Taze kanıt: 3 glm testi + 48 toplam viz/cli testi geçti; flake8 temiz.
+- ÇAPRAZ NOT: Task 4 menü handler'larında da `_load_file(path).dataframe` kullanılmalı.
