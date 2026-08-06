@@ -3,10 +3,17 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-SURUM=$(.venv/bin/python -c "import agrista; print(agrista.__version__)")
-echo "== Agrista ${SURUM} macOS build =="
+# Yerel geliştirme ortamında .venv, CI'da sistem python'u kullanılır
+if [ -x .venv/bin/python ]; then
+  PY=.venv/bin/python
+else
+  PY=python3
+fi
 
-.venv/bin/python -m PyInstaller packaging/agrista-gui.spec --noconfirm --clean
+SURUM=$("$PY" -c "import agrista; print(agrista.__version__)")
+echo "== Agrista ${SURUM} macOS build (python: $PY) =="
+
+"$PY" -m PyInstaller packaging/agrista-gui.spec --noconfirm --clean
 
 KIMLIK="${MACOS_SIGNING_IDENTITY:--}"   # '-' = ad-hoc
 codesign --force --deep --sign "$KIMLIK" "dist/Agrista.app"
