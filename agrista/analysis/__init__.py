@@ -962,7 +962,8 @@ def _check_columns(data: pd.DataFrame, columns: list) -> None:
 
 
 def _validate_numeric_predictors(valid: pd.DataFrame, predictors: list) -> None:
-    non_numeric = [c for c in predictors if not np.issubdtype(valid[c].dtype, np.number)]
+    non_numeric = [c for c in predictors
+                   if not pd.api.types.is_numeric_dtype(valid[c])]
     if non_numeric:
         raise ValueError(f"Sayısal olmayan açıklayıcı değişkenler: {non_numeric}")
     constant = [c for c in predictors if valid[c].std(ddof=0) == 0]

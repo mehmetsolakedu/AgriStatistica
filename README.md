@@ -50,7 +50,10 @@ GitHub Releases'ta yayınlanır (`Agrista-<sürüm>-macOS.dmg`,
 
 **İndir:** [Agrista v0.4.0 Release](https://github.com/mehmetsolakedu/AgriStatistica/releases/latest)
 — macOS: `Agrista-0.4.0-macOS.dmg` (ad-hoc imzalı; ilk açılışta
-Sistem Ayarları → Gizlilik ve Güvenlik onayı gerekebilir).
+Sistem Ayarları → Gizlilik ve Güvenlik onayı gerekebilir),
+Windows: `Agrista-0.4.0-Setup.exe` (NSIS kurulumcu).
+Uygulama, "Dosya → Güncellemeleri Denetle" ile yeni sürümleri
+denetler ve indirme bağlantısını sunar.
 
 ## Kullanım
 
