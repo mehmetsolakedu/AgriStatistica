@@ -16,6 +16,9 @@ import numpy as np
 
 from agrista.models import glmm as glmm_fit
 from agrista.survey import svy_mean, svy_ratio, survey_logistic
+from agrista.viz import AgristaPlotter
+from agrista.viz.interactive import build_dashboard
+from agrista.viz.auto_eda import auto_eda
 
 
 def _load_file(filepath: str, sheet: int = 0):
@@ -330,7 +333,7 @@ def _print_glmm_result(result: dict):
 
 
 @click.group(invoke_without_command=True)
-@click.version_option(version="0.2.0", prog_name="Agrista")
+@click.version_option(version="0.3.0", prog_name="Agrista")
 @click.pass_context
 def main(ctx):
     """Agrista — Tarımsal İstatistik Yazılımı
@@ -1110,6 +1113,153 @@ def svylogit(filepath: str, yanit: str, degiskenler: str, agirlik: str,
     _print_svylogit_result(result)
 
 
+@main.command("plot")
+@click.argument("filepath")
+@click.option("--tip", default="histogram",
+              type=click.Choice(["histogram", "scatter", "box", "violin",
+                                 "bar", "heat", "qq", "cizgi", "errorbar"]))
+@click.option("--x", "x_col", default=None, help="X/yatay sütun")
+@click.option("--y", "y_col", default=None, help="Y/dikey sütun")
+@click.option("--grup", default=None, help="Grup sütunu")
+@click.option("--tema", default="agrista",
+              type=click.Choice(["agrista", "yayin", "minimal", "karanlik"]))
+@click.option("--cikti", required=True, help="Kaydedilecek dosya yolu")
+def plot(filepath: str, tip: str, x_col: str, y_col: str, grup: str,
+         tema: str, cikti: str):
+    """Hızlı grafik üretimi (premium grafik kütüphanesi)."""
+    from agrista.viz import AgristaPlotter
+    df = _load_file(filepath).dataframe
+    p = AgristaPlotter(theme=tema)
+    try:
+        if tip == "histogram" and x_col:
+            fig = p.histogram(df[x_col].dropna(), title=f"{x_col} Dağılımı")
+        elif tip == "scatter" and x_col and y_col:
+            fig = p.scatter(df[x_col], df[y_col], xlabel=x_col, ylabel=y_col)
+        elif tip == "box" and y_col:
+            fig = p.boxplot(df, x_col=grup, y_col=y_col)
+        elif tip == "violin" and grup and y_col:
+            fig = p.violin_plot(df, x_col=grup, y_col=y_col)
+        elif tip == "bar" and x_col and y_col:
+            say = df.groupby(x_col, observed=True)[y_col].mean()
+            fig = p.bar_chart([str(v) for v in say.index], list(say.values),
+                              xlabel=x_col, ylabel=f"Ortalama {y_col}")
+        elif tip == "heat":
+            fig = p.correlation_heatmap(df)
+        elif tip == "qq" and x_col:
+            fig = p.qq_plot(df[x_col].dropna())
+        elif tip == "cizgi" and x_col and y_col:
+            fig = p.line_chart(list(df[x_col]), list(df[y_col]),
+                               xlabel=x_col, ylabel=y_col)
+        elif tip == "errorbar" and grup and y_col:
+            fig = p.error_bar(df, x_col=grup, y_col=y_col)
+        else:
+            raise click.UsageError(
+                "Bu grafik tipi için gerekli sütunlar verilmedi")
+    except ValueError as e:
+        raise click.ClickException(str(e))
+    p.save(cikti, fig=fig)
+    AgristaPlotter.close()
+
+
+@main.command("plot-forest")
+@click.argument("filepath")
+@click.option("--etki", required=True)
+@click.option("--alt", required=True)
+@click.option("--ust", required=True)
+@click.option("--etiket", required=True)
+@click.option("--tema", default="agrista",
+              type=click.Choice(["agrista", "yayin", "minimal", "karanlik"]))
+@click.option("--cikti", required=True)
+def plot_forest(filepath: str, etki: str, alt: str, ust: str, etiket: str,
+                tema: str, cikti: str):
+    """Orman (forest) grafiği."""
+    from agrista.viz import AgristaPlotter
+    df = _load_file(filepath).dataframe
+    p = AgristaPlotter(theme=tema)
+    try:
+        fig = p.forest_plot(list(df[etki]), list(df[alt]), list(df[ust]),
+                            labels=[str(x) for x in df[etiket]])
+    except ValueError as e:
+        raise click.ClickException(str(e))
+    p.save(cikti, fig=fig)
+    AgristaPlotter.close()
+
+
+@main.command("plot-roc")
+@click.argument("filepath")
+@click.option("--gercek", required=True)
+@click.option("--skor", required=True)
+@click.option("--tema", default="agrista",
+              type=click.Choice(["agrista", "yayin", "minimal", "karanlik"]))
+@click.option("--cikti", required=True)
+def plot_roc(filepath: str, gercek: str, skor: str, tema: str, cikti: str):
+    """ROC eğrisi grafiği."""
+    from agrista.viz import AgristaPlotter
+    df = _load_file(filepath).dataframe
+    p = AgristaPlotter(theme=tema)
+    try:
+        fig = p.roc_plot(df[gercek], df[skor])
+    except ValueError as e:
+        raise click.ClickException(str(e))
+    p.save(cikti, fig=fig)
+    AgristaPlotter.close()
+
+
+@main.command("plot-survival")
+@click.argument("filepath")
+@click.option("--zaman", required=True)
+@click.option("--olay", required=True)
+@click.option("--grup", default=None)
+@click.option("--tema", default="agrista",
+              type=click.Choice(["agrista", "yayin", "minimal", "karanlik"]))
+@click.option("--cikti", required=True)
+def plot_survival(filepath: str, zaman: str, olay: str, grup: str,
+                  tema: str, cikti: str):
+    """Kaplan-Meier sağkalım grafiği."""
+    from agrista.viz import AgristaPlotter
+    df = _load_file(filepath).dataframe
+    p = AgristaPlotter(theme=tema)
+    try:
+        fig = p.survival_plot(df[zaman], df[olay],
+                              group=df[grup] if grup else None)
+    except ValueError as e:
+        raise click.ClickException(str(e))
+    p.save(cikti, fig=fig)
+    AgristaPlotter.close()
+
+
+@main.command("dashboard")
+@click.argument("filepath")
+@click.option("--hedef", default=None, help="Hedef değişken sütunu")
+@click.option("--baslik", default="Agrista Keşif Paneli")
+@click.option("--cikti", default="dashboard.html")
+def dashboard(filepath: str, hedef: str, baslik: str, cikti: str):
+    """Etkileşimli keşif paneli (tek HTML)."""
+    from agrista.viz.interactive import build_dashboard
+    df = _load_file(filepath).dataframe
+    try:
+        res = build_dashboard(df, cikti, target=hedef, title=baslik)
+    except ValueError as e:
+        raise click.ClickException(str(e))
+    click.echo(f"Panel oluşturuldu: {res['path']} "
+               f"({res['n_figures']} grafik)")
+
+
+@main.command("autoeda")
+@click.argument("filepath")
+@click.option("--cikti-dir", default="agrista_eda")
+def autoeda(filepath: str, cikti_dir: str):
+    """Otomatik keşif raporu (öneri + grafikler + HTML)."""
+    from agrista.viz.auto_eda import auto_eda
+    df = _load_file(filepath).dataframe
+    try:
+        res = auto_eda(df, cikti_dir)
+    except ValueError as e:
+        raise click.ClickException(str(e))
+    click.echo(f"Rapor: {res['html_path']} "
+               f"({len(res['figures'])} grafik üretildi)")
+
+
 # ---------------------------------------------------------------------------
 # Etkileşimli ana menü
 # ---------------------------------------------------------------------------
@@ -1130,7 +1280,7 @@ def _print_banner():
     click.echo("")
     for line in _LOGO.splitlines():
         click.secho(line, fg="green", bold=True)
-    click.secho("      ── Tarımsal İstatistik Yazılımı · v0.2.0 ──",
+    click.secho("      ── Tarımsal İstatistik Yazılımı · v0.3.0 ──",
                 fg="yellow")
     click.echo("")
 
@@ -1238,6 +1388,14 @@ def _build_menu_structure():
             ("Anket ortalaması/toplamı (Taylor)", _menu_svymean),
             ("Anket oranı (Taylor)", _menu_svyratio),
             ("Anket lojistik regresyonu", _menu_svylogit),
+        ]),
+        ("🎨 Grafikler", [
+            ("Hızlı grafik (plot)", _menu_plot),
+            ("Dağılım grafikleri (violin/ridge/raincloud)", _menu_dagilim),
+            ("Tanı grafikleri (Q-Q, artık, Bland-Altman)", _menu_tani),
+            ("Model grafikleri (ROC, sağkalım, orman, büyüme eğrisi)", _menu_model),
+            ("Etkileşimli dashboard", _menu_dashboard),
+            ("Otomatik keşif (Auto-EDA)", _menu_autoeda),
         ]),
     ]
 
@@ -2231,6 +2389,70 @@ def _menu_timeseries():
     periods = click.prompt("Periyot", default=1, type=int)
     result = create_time_series(df, col, function=islev, periods=periods)
     _save_output(result, _default_output(path, suffix="_seri"))
+
+
+def _menu_plot():
+    path = _ask_file("Veri dosyası yolu")
+    df = _load_file(path).dataframe
+    x_col = _ask_column(df, "Grafiğin X/değişken sütunu")
+    tema = _prompt_or_eof("Tema (agrista/yayin/minimal/karanlik)",
+                          default="agrista")
+    cikti = _prompt_or_eof("Kayıt yolu", default="agrista_grafik.png")
+    p = AgristaPlotter(theme=tema)
+    fig = p.histogram(df[x_col].dropna(), title=f"{x_col} Dağılımı")
+    p.save(cikti, fig=fig)
+    AgristaPlotter.close()
+
+
+def _menu_dagilim():
+    path = _ask_file("Veri dosyası yolu")
+    df = _load_file(path).dataframe
+    y_col = _ask_column(df, "Sayısal değişken")
+    grup = _ask_column(df, "Grup sütunu")
+    cikti = _prompt_or_eof("Kayıt yolu", default="violin.png")
+    p = AgristaPlotter()
+    fig = p.violin_plot(df, x_col=grup, y_col=y_col)
+    p.save(cikti, fig=fig)
+    AgristaPlotter.close()
+
+
+def _menu_tani():
+    path = _ask_file("Veri dosyası yolu")
+    df = _load_file(path).dataframe
+    x_col = _ask_column(df, "Değişken")
+    cikti = _prompt_or_eof("Kayıt yolu", default="qq.png")
+    p = AgristaPlotter()
+    fig = p.qq_plot(df[x_col].dropna())
+    p.save(cikti, fig=fig)
+    AgristaPlotter.close()
+
+
+def _menu_model():
+    path = _ask_file("Veri dosyası yolu")
+    df = _load_file(path).dataframe
+    gercek = _ask_column(df, "Gerçek sınıf (0/1)")
+    skor = _ask_column(df, "Skor sütunu")
+    cikti = _prompt_or_eof("Kayıt yolu", default="roc.png")
+    p = AgristaPlotter()
+    fig = p.roc_plot(df[gercek], df[skor])
+    p.save(cikti, fig=fig)
+    AgristaPlotter.close()
+
+
+def _menu_dashboard():
+    path = _ask_file("Veri dosyası yolu")
+    df = _load_file(path).dataframe
+    cikti = _prompt_or_eof("Kayıt yolu", default="dashboard.html")
+    res = build_dashboard(df, cikti)
+    click.echo(f"Panel oluşturuldu: {res['path']}")
+
+
+def _menu_autoeda():
+    path = _ask_file("Veri dosyası yolu")
+    df = _load_file(path).dataframe
+    dizin = _prompt_or_eof("Çıktı dizini", default="agrista_eda")
+    res = auto_eda(df, dizin)
+    click.echo(f"Rapor: {res['html_path']}")
 
 
 def run_interactive_menu():
