@@ -330,7 +330,7 @@ def _print_glmm_result(result: dict):
 
 
 @click.group(invoke_without_command=True)
-@click.version_option(version="0.1.0", prog_name="Agrista")
+@click.version_option(version="0.2.0", prog_name="Agrista")
 @click.pass_context
 def main(ctx):
     """Agrista — Tarımsal İstatistik Yazılımı

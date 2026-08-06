@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "agrista"
-version = "0.1.0"
+version = "0.2.0"
 description = "Tarımsal İstatistik Yazılımı — Agricultural Statistical Analysis Toolkit"
 readme = "README.md"
 license = {text = "MIT"}
