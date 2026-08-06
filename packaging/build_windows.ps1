@@ -14,6 +14,23 @@ Write-Host "== Agrista $surum Windows build (python: $py) =="
 
 & $py -m PyInstaller packaging\agrista-gui.spec --noconfirm --clean
 
-makensis packaging\agrista.nsi
+$nsisCandidates = @(
+    (Get-Command makensis -ErrorAction SilentlyContinue).Source,
+    "$env:ProgramFiles\NSIS\makensis.exe",
+    "${env:ProgramFiles(x86)}\NSIS\makensis.exe",
+    "C:\ProgramData\chocolatey\bin\makensis.exe"
+)
+$makensis = $nsisCandidates | Where-Object { $_ -and (Test-Path $_) } |
+    Select-Object -First 1
+if (-not $makensis) {
+    choco install nsis -y
+    $makensis = "${env:ProgramFiles(x86)}\NSIS\makensis.exe"
+    if (-not (Test-Path $makensis)) {
+        $makensis = "$env:ProgramFiles\NSIS\makensis.exe"
+    }
+}
+Write-Host "NSIS: $makensis"
+
+& $makensis packaging\agrista.nsi
 Move-Item dist\Agrista-Setup.exe "dist\Agrista-$surum-Setup.exe" -Force
 Write-Host "== Tamam: dist\Agrista-$surum-Setup.exe =="
