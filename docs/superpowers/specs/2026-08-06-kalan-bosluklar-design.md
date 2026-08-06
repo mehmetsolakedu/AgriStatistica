@@ -20,7 +20,7 @@ grafikler, Extensions Hub) — terminal karşılığı yok, log'da zaten dışar
    statsmodels, click) içinde kalınır. `pyproject.toml` bağımlılıkları
    değişmez.
 2. **Adlandırma:** Referans paketi için her yerde yalnızca "Premium Program"
-   adı kullanılır; "SPSS" adı hiçbir dosyada yer alamaz.
+   adı kullanılır; referans paketinin eski adı hiçbir dosyada yer alamaz.
 3. **Fonksiyon şeması:** Analiz fonksiyonları `dict` döner; sayısal alanlar
    `float`/`int` cast'li; Türkçe docstring; girdi doğrulama için mevcut
    `_check_columns` deseni kullanılır.

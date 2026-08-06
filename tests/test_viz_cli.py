@@ -195,7 +195,7 @@ class TestCli:
     def test_version(self, runner):
         result = runner.invoke(cli_main, ["--version"])
         assert result.exit_code == 0
-        assert "0.1.0" in result.output
+        assert "0.2.0" in result.output
 
     def test_info_command(self, runner, csv_file):
         result = runner.invoke(cli_main, ["info", csv_file])
@@ -412,3 +412,164 @@ class TestCliWave3:
                                           "--yanit", "kalite",
                                           "--degiskenler", "yok"])
         assert "Hata" in result.output
+
+
+class TestGlmCli:
+    """GLM CLI komutu testleri: tek değişkenli ve tekrarlı ölçüm."""
+
+    @pytest.fixture
+    def runner(self):
+        return CliRunner()
+
+    @pytest.fixture
+    def glm_csv(self, tmp_path):
+        path = tmp_path / "glm.csv"
+        pd.DataFrame({"grup": ["A"] * 8 + ["B"] * 8,
+                      "verim": [5, 6, 5, 6, 5, 6, 5, 6,
+                                3, 4, 3, 4, 3, 4, 3, 4]}).to_csv(path, index=False)
+        return str(path)
+
+    @pytest.fixture
+    def rm_csv(self, tmp_path):
+        path = tmp_path / "rm.csv"
+        pd.DataFrame({"denek": list(range(6)),
+                      "t1": [1, 2, 3, 4, 5, 6], "t2": [2, 3, 4, 5, 6, 7],
+                      "t3": [4, 5, 6, 7, 8, 9]}).to_csv(path, index=False)
+        return str(path)
+
+    def test_cli_glm_tek_faktor(self, runner, glm_csv):
+        result = runner.invoke(cli_main, ["glm", glm_csv, "--yanit", "verim",
+                                          "--faktorler", "grup", "--posthoc", "yok"])
+        assert result.exit_code == 0
+        assert "GLM" in result.output
+
+    def test_cli_glm_tekrarli_olcum(self, runner, rm_csv):
+        result = runner.invoke(cli_main, ["glm", rm_csv, "--yanit", "yok",
+                                          "--faktorler", "denek",
+                                          "--within", "t1,t2,t3",
+                                          "--denek", "denek"])
+        assert result.exit_code == 0
+        assert "Mauchly" in result.output
+
+    def test_cli_glm_hatali_sutun(self, runner, glm_csv):
+        result = runner.invoke(cli_main, ["glm", glm_csv, "--yanit", "yok",
+                                          "--faktorler", "grup"])
+        assert result.exit_code != 0
+
+
+class TestGeeCli:
+    """GEE CLI komutu testleri: kümelenmiş veri için marjinal model."""
+
+    @pytest.fixture
+    def runner(self):
+        return CliRunner()
+
+    @pytest.fixture
+    def gee_csv(self, tmp_path):
+        rng = np.random.default_rng(1)
+        path = tmp_path / "gee.csv"
+        pd.DataFrame({"grup": np.repeat(np.arange(15), 6),
+                      "x": rng.normal(0, 1, 90),
+                      "y": rng.normal(0, 1, 90)}).to_csv(path, index=False)
+        return str(path)
+
+    def test_cli_gee(self, runner, gee_csv):
+        result = runner.invoke(cli_main, ["gee", gee_csv, "--yanit", "y",
+                                          "--degiskenler", "x",
+                                          "--grup", "grup",
+                                          "--yapi", "exchangeable"])
+        assert result.exit_code == 0
+        assert "GEE" in result.output
+
+    def test_cli_gee_hatali_aile(self, runner, gee_csv):
+        result = runner.invoke(cli_main, ["gee", gee_csv, "--yanit", "y",
+                                          "--degiskenler", "x",
+                                          "--grup", "grup",
+                                          "--aile", "negbin"])
+        assert result.exit_code != 0
+
+
+class TestGlmmCli:
+    """GLMM CLI komutu testleri: gaussian REML + binomial/poisson PQL."""
+
+    @pytest.fixture
+    def runner(self):
+        return CliRunner()
+
+    @pytest.fixture
+    def _glmm_csv(self, tmp_path):
+        rng = np.random.default_rng(2)
+        rows = []
+        for g in range(15):
+            b = rng.normal(0, 1.0)
+            for _ in range(8):
+                x = rng.normal(0, 1)
+                rows.append({"grup": g, "x": x,
+                             "y": 2 + x + b + rng.normal(0, 0.5)})
+        csv = tmp_path / "glmm.csv"
+        pd.DataFrame(rows).to_csv(csv, index=False)
+        return str(csv)
+
+    def test_cli_glmm(self, runner, _glmm_csv):
+        result = runner.invoke(cli_main, ["glmm", _glmm_csv, "--yanit", "y",
+                                          "--sabitler", "x", "--grup", "grup"])
+        assert result.exit_code == 0
+        assert "GLMM" in result.output
+
+    def test_cli_glmm_binomial_hatali_yanit(self, runner, _glmm_csv):
+        result = runner.invoke(cli_main, ["glmm", _glmm_csv, "--yanit", "y",
+                                          "--sabitler", "x", "--grup", "grup",
+                                          "--aile", "binomial"])
+        assert result.exit_code != 0
+
+
+class TestSurveyCli:
+    """Karmaşık Örneklem CLI komutları: svymean / svyratio / svylogit."""
+
+    @pytest.fixture
+    def runner(self):
+        return CliRunner()
+
+    @pytest.fixture
+    def svy_csv(self, tmp_path):
+        rng = np.random.default_rng(3)
+        df = pd.DataFrame({
+            "psu": np.repeat(np.arange(12), 5),
+            "tabaka": np.repeat([0] * 6 + [1] * 6, 5),
+            "w": rng.uniform(0.5, 2, 60),
+            "y": rng.normal(50, 5, 60),
+            "x": rng.uniform(1, 3, 60),
+            "b": rng.integers(0, 2, 60),
+        })
+        csv = tmp_path / "svy.csv"
+        df.to_csv(csv, index=False)
+        return str(csv)
+
+    def test_cli_svymean(self, runner, svy_csv):
+        result = runner.invoke(cli_main, ["svymean", svy_csv,
+                                          "--degisken", "y",
+                                          "--agirlik", "w", "--psu", "psu",
+                                          "--tabaka", "tabaka"])
+        assert result.exit_code == 0
+        assert "Anket ortalaması" in result.output
+
+    def test_cli_svyratio(self, runner, svy_csv):
+        result = runner.invoke(cli_main, ["svyratio", svy_csv,
+                                          "--pay", "y",
+                                          "--payda", "x", "--psu", "psu"])
+        assert result.exit_code == 0
+        assert "oran" in result.output.lower()
+
+    def test_cli_svylogit(self, runner, svy_csv):
+        result = runner.invoke(cli_main, ["svylogit", svy_csv,
+                                          "--yanit", "b",
+                                          "--degiskenler", "y", "--psu",
+                                          "psu", "--agirlik", "w"])
+        assert result.exit_code == 0
+        assert "Survey Logistic" in result.output
+
+    def test_cli_svymean_eksik_psu_hatasi(self, runner, svy_csv):
+        result = runner.invoke(cli_main, ["svymean", svy_csv,
+                                          "--degisken", "y",
+                                          "--psu", "yok"])
+        assert result.exit_code != 0

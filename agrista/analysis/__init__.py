@@ -2108,3 +2108,222 @@ def twostep_cluster(
         "bic": bic_values,
         "n": int(n),
     }
+
+
+def glm_univariate(data: pd.DataFrame, response: str,
+                   between_factors: list, covariates: Optional[list] = None,
+                   ss_type: int = 3, posthoc: Optional[str] = "tukey",
+                   alpha: float = 0.05) -> dict:
+    """Genel Doğrusal Model — tek değişkenli (faktöriyel + kovaryeteli).
+
+    Premium Program GLM Univariate denkliği: Tip I/II/III kareler toplamı,
+    kısmi eta-kare efekt büyüklükleri ve tek faktörde post-hoc.
+    """
+    import statsmodels.formula.api as smf
+    from statsmodels.stats.anova import anova_lm
+
+    cols = [response] + list(between_factors) + list(covariates or [])
+    _check_columns(data, cols)
+    work = data[cols].dropna()
+    if work.empty:
+        raise ValueError("GLM için geçerli veri yok")
+    for f in between_factors:
+        if work[f].nunique() < 2:
+            raise ValueError(f"'{f}' faktörü en az 2 düzey içermeli")
+
+    terms = [f"C({f}, Sum)" for f in between_factors]
+    terms += list(covariates or [])
+    if not terms:
+        raise ValueError("En az bir faktör veya kovaryet gerekli")
+    model = smf.ols(f"{response} ~ {' + '.join(terms)}", data=work).fit()
+    anova = anova_lm(model, typ=ss_type)
+    ss_resid = float(anova["sum_sq"].iloc[-1])
+    if ss_resid <= 0:
+        raise ValueError("Artık kareler toplamı hesaplanamadı (yetersiz df)")
+
+    table = []
+    for name, row in anova.iterrows():
+        if name in ("Intercept", "Residual"):
+            continue
+        table.append({
+            "source": str(name),
+            "ss": float(row["sum_sq"]),
+            "df": int(row["df"]),
+            "ms": float(row["sum_sq"] / row["df"]),
+            "f_value": float(row["F"]) if not np.isnan(row["F"]) else None,
+            "p_value": float(row["PR(>F)"]) if not np.isnan(row["PR(>F)"]) else None,
+        })
+    effect_sizes = {t["source"]: float(t["ss"] / (t["ss"] + ss_resid))
+                    for t in table if t["f_value"] is not None}
+
+    posthoc_result = None
+    if posthoc in ("tukey", "duncan") and len(between_factors) == 1:
+        fn = posthoc_tukey if posthoc == "tukey" else posthoc_duncan
+        posthoc_result = fn(work, response, between_factors[0], alpha)
+
+    return {
+        "model": "GLM Univariate",
+        "ss_type": int(ss_type),
+        "anova_table": table,
+        "effect_sizes": effect_sizes,
+        "r_squared": float(model.rsquared),
+        "posthoc": posthoc_result,
+        "n_obs": int(len(work)),
+    }
+
+
+def _helmert_orthogonal(k: int) -> np.ndarray:
+    """k koşul için (k-1)×k ortonormal kontrast matrisi (Mauchly için)."""
+    C = np.zeros((k - 1, k))
+    for i in range(1, k):
+        C[i - 1, :i] = 1.0 / i
+        C[i - 1, i] = -1.0
+    Q, _ = np.linalg.qr(C.T)
+    return Q.T
+
+
+def glm_repeated_measures(data: pd.DataFrame, response_cols: list,
+                          subject_col: str,
+                          between_factor: Optional[str] = None,
+                          alpha: float = 0.05) -> dict:
+    """Genel Doğrusal Model — tekrarlı ölçümler (univariate yaklaşım).
+
+    Wide formatta her sütun bir ölçüm zamanıdır. Mauchly küresellik testi,
+    Greenhouse-Geisser ve Huynh-Feldt düzeltmeleri raporlanır.
+    """
+    from statsmodels.stats.anova import AnovaRM
+
+    k = len(response_cols)
+    if k < 3:
+        raise ValueError("Tekrarlı ölçüm için en az 3 koşul gerekli")
+    ekstra = [between_factor] if between_factor else []
+    _check_columns(data, list(response_cols) + [subject_col] + ekstra)
+    work = data[list(response_cols) + [subject_col] + ekstra].dropna()
+    n_subj = work[subject_col].nunique()
+    if n_subj < 2:
+        raise ValueError("Tekrarlı ölçüm için en az 2 denek gerekli")
+
+    # Within-subject F testi (AnovaRM)
+    long = work.melt(id_vars=[subject_col] + ekstra,
+                     value_vars=list(response_cols),
+                     var_name="kosul", value_name="yanit")
+    aov = AnovaRM(long, depvar="yanit", subject=subject_col,
+                  within=["kosul"], aggregate_func="mean").fit()
+    satir = aov.anova_table.iloc[0]
+    f_deger = float(satir["F Value"])
+    df1 = float(satir["Num DF"])
+    df2 = float(satir["Den DF"])
+    p_deger = float(satir["Pr > F"])
+
+    # Mauchly küresellik testi (ortonormal kontrast özdeğerleri)
+    S = work[list(response_cols)].cov(ddof=1).to_numpy()
+    M = _helmert_orthogonal(k) @ S @ _helmert_orthogonal(k).T
+    eig = np.maximum(np.linalg.eigvalsh(M), 1e-12)
+    p = k - 1
+    W = float(np.prod(eig) / (np.sum(eig) / p) ** p)
+    df_mauchly = p * (p + 1) / 2 - 1
+    chi2 = -((n_subj - 1) - (2 * p * p + p + 2) / (6 * p)) * np.log(W)
+    p_mauchly = float(1 - stats.chi2.cdf(chi2, df_mauchly))
+
+    # Epsilon düzeltmeleri
+    eps_gg = float((np.sum(eig) ** 2) / (p * np.sum(eig ** 2)))
+    eps_hf = float(min(1.0, (n_subj * p * eps_gg - 2)
+                       / (p * (n_subj - 1 - p * eps_gg))))
+    corrected = {}
+    for ad, eps in (("greenhouse_geisser", eps_gg), ("huynh_feldt", eps_hf)):
+        corrected[ad] = {
+            "df1": float(df1 * eps), "df2": float(df2 * eps),
+            "p_value": float(1 - stats.f.cdf(f_deger, df1 * eps, df2 * eps)),
+        }
+
+    between_effect = None
+    if between_factor:
+        denek_ortalama = work.groupby([subject_col, between_factor])[
+            list(response_cols)].mean().mean(axis=1).reset_index()
+        denek_ortalama.columns = [subject_col, between_factor, "ortalama"]
+        gruplar = [denek_ortalama.loc[denek_ortalama[between_factor] == g,
+                                      "ortalama"]
+                   for g in sorted(denek_ortalama[between_factor].unique())]
+        between_effect = anova_one_way(*gruplar)
+
+    return {
+        "model": "GLM Repeated Measures",
+        "within_effect": {"f_value": f_deger, "df1": df1, "df2": df2,
+                          "p_value": p_deger},
+        "mauchly": {"w": W, "chi2": float(chi2), "p_value": p_mauchly},
+        "epsilon": {"greenhouse_geisser": eps_gg, "huynh_feldt": eps_hf},
+        "corrected": corrected,
+        "between_effect": between_effect,
+        "n_subjects": int(n_subj),
+    }
+
+
+def gee_model(data: pd.DataFrame, response: str, covariates: list,
+              group_col: str, family: str = "gaussian",
+              cov_struct: str = "independent",
+              time_col: Optional[str] = None) -> dict:
+    """Genelleştirilmiş Tahmin Denklemleri (GEE) — marjinal model.
+
+    Premium Program GEE denkliği: kümelenmiş/korelasyonlu veri için
+    population-averaged katsayılar, robust (sandwich) standart hatalar,
+    çalışma korelasyon yapısı ve QIC.
+    """
+    import statsmodels.formula.api as smf
+
+    cols = [response, group_col] + list(covariates)
+    _check_columns(data, cols)
+    work = data[cols + ([time_col] if time_col else [])].dropna()
+    if work[group_col].nunique() < 2:
+        raise ValueError("GEE için en az 2 grup gerekli")
+
+    families = {"gaussian": sm.families.Gaussian,
+                "binomial": sm.families.Binomial,
+                "poisson": sm.families.Poisson,
+                "gamma": sm.families.Gamma}
+    if family not in families:
+        raise ValueError(f"Bilinmeyen aile: {family}")
+    if family == "binomial" and not work[response].isin([0, 1]).all():
+        raise ValueError("Binomial aile için yanıt 0/1 olmalı")
+
+    # Not: kurulu statsmodels sürümü kovaryans yapısını örnek (instance)
+    # olarak bekler; dize takma adları desteklenmez. Autoregressive için
+    # grid=True sayısal kök bulma kararlılığı sağlar.
+    structs = {"independent": sm.cov_struct.Independence,
+               "exchangeable": sm.cov_struct.Exchangeable,
+               "autoregressive": lambda: sm.cov_struct.Autoregressive(
+                   grid=True)}
+    if cov_struct not in structs:
+        raise ValueError(f"Bilinmeyen korelasyon yapısı: {cov_struct}")
+    if cov_struct == "autoregressive" and time_col is None:
+        raise ValueError("Autoregressive yapı için time_col gerekli")
+
+    formula = f"{response} ~ {' + '.join(covariates)}"
+    model = smf.gee(formula, groups=group_col, data=work,
+                    family=families[family](),
+                    cov_struct=structs[cov_struct](),
+                    time=time_col)
+    fitted = model.fit()
+
+    coefficients = {}
+    for ad in fitted.params.index:
+        coefficients[ad] = {
+            "coefficient": float(fitted.params[ad]),
+            "std_err": float(fitted.bse[ad]),
+            "z_value": float(fitted.tvalues[ad]),
+            "p_value": float(fitted.pvalues[ad]),
+        }
+    try:
+        qic = float(fitted.qic())
+    except (AttributeError, TypeError):
+        qic = None
+
+    return {
+        "model": "GEE",
+        "family": family,
+        "cov_struct": cov_struct,
+        "coefficients": coefficients,
+        "qic": qic,
+        "n_groups": int(work[group_col].nunique()),
+        "n_obs": int(len(work)),
+        "converged": bool(fitted.converged),
+    }

@@ -1,4 +1,4 @@
-"""Agrista etkileşimli menü duman testi — 19 kategorinin tüm işlemleri
+"""Agrista etkileşimli menü duman testi — 20 kategorinin tüm işlemleri
 CliRunner ile betikli girdi üzerinden uçtan uca çalıştırılır."""
 
 import os
@@ -134,6 +134,29 @@ pd.DataFrame({
 pd.DataFrame({"zaman": [0, 7, 14, 21], "siddet": [5, 20, 45, 70]}).to_csv(
     f"{TMP}/audpc.csv", index=False)
 
+rm_taban = rng.normal(0, 1, 10)
+rm_df = pd.DataFrame({
+    "denek": [f"d{i}" for i in range(10)],
+    "t1": rm_taban + rng.normal(0, 0.3, 10),
+    "t2": rm_taban + 0.5 + rng.normal(0, 0.3, 10),
+    "t3": rm_taban + 1.0 + rng.normal(0, 0.3, 10),
+})
+rm_df.to_csv(f"{TMP}/rm.csv", index=False)
+
+gee_df = pd.DataFrame({
+    "grup": np.repeat(np.arange(15), 6),
+    "x": rng.normal(0, 1, 90),
+    "y": rng.normal(0, 1, 90),
+})
+gee_df.to_csv(f"{TMP}/gee.csv", index=False)
+
+glmm_df = pd.DataFrame({
+    "grup": np.repeat(np.arange(15), 6),
+    "x": rng.normal(0, 1, 90),
+    "y": rng.normal(0, 1, 90),
+})
+glmm_df.to_csv(f"{TMP}/glmm.csv", index=False)
+
 pd.DataFrame({"isletme": ["C1", "C2", "C3", "C4"],
               "arazi": [10, 20, 15, 12], "emek": [5, 8, 6, 4]}).to_csv(
     f"{TMP}/dea_in.csv", index=False)
@@ -141,9 +164,21 @@ pd.DataFrame({"isletme": ["C1", "C2", "C3", "C4"],
               "urun": [100, 150, 140, 130]}).to_csv(
     f"{TMP}/dea_out.csv", index=False)
 
+svy = pd.DataFrame({
+    "psu": np.repeat(np.arange(12), 5),
+    "tabaka": np.repeat([0] * 6 + [1] * 6, 5),
+    "w": rng.uniform(0.5, 2, 60),
+    "y": rng.normal(50, 5, 60),
+    "x": rng.uniform(1, 3, 60),
+    "b": rng.integers(0, 2, 60),
+})
+svy.to_csv(f"{TMP}/svy.csv", index=False)
+
 # ---------------------------------------------------------------------------
 # Menü akışları: (kategori, işlem, başlık, girdi, beklenen çıktı)
 # ---------------------------------------------------------------------------
+
+
 def out(name):
     return os.path.join(OUT, name)
 
@@ -177,6 +212,10 @@ FLOWS = [
      f"3\n4\n{TMP}/group.csv\nverim\ngrup\n0\n", "Tukey"),
     ("[3] Ortalamalar", "Ortalama raporu",
      f"3\n5\n{TMP}/group.csv\nverim\ngrup\n0\n", "Genel:"),
+    ("[3] Ortalamalar", "Genel Doğrusal Model (Tek Değişkenli)",
+     f"3\n6\n{TMP}/group.csv\nverim\ngrup\n0\n", "GLM"),
+    ("[3] Ortalamalar", "Tekrarlı Ölçümler (GLM)",
+     f"3\n7\n{TMP}/rm.csv\nt1,t2,t3\ndenek\n0\n", "Mauchly"),
 
     ("[4] Korelasyon", "İki değişkenli korelasyon",
      f"4\n1\n{TMP}/farm.csv\npearson\n0\n", "Korelasyon Analizi"),
@@ -216,6 +255,10 @@ FLOWS = [
      f"8\n1\n{TMP}/mlogit.csv\nkalite\nnem,protein\n0\n", "Multinomial"),
     ("[8] Regresyon", "Ordinal lojistik",
      f"8\n2\n{TMP}/mlogit.csv\nkalite\nnem\n0\n", "Ordinal"),
+    ("📈 Regresyon", "GEE (Genelleştirilmiş Tahmin Denklemleri)",
+     f"8\n3\n{TMP}/gee.csv\ny\nx\ngrup\n0\n", "GEE"),
+    ("📈 Regresyon", "GLMM (Genelleştirilmiş Karışık Model)",
+     f"8\n4\n{TMP}/glmm.csv\ny\nx\ngrup\ngaussian\n0\n", "GLMM"),
 
     ("[9] Sınıflandırma", "Ayrımsama analizi",
      f"9\n1\n{TMP}/mlogit.csv\ngrup\nnem,protein\n0\n", "Wilks lambda"),
@@ -282,11 +325,20 @@ FLOWS = [
      f"19\n1\n{TMP}/audpc.csv\nzaman\nsiddet\n0\n", "AUDPC"),
     ("[19] Uzman Branş", "DEA",
      f"19\n2\n{TMP}/dea_in.csv\n{TMP}/dea_out.csv\nCCR\n0\n", "DEA Etkinlik"),
+
+    ("[20] Karmaşık Örneklem", "Anket ortalaması/toplamı (Taylor)",
+     f"20\n1\n{TMP}/svy.csv\ny\n\n\n\n0\n", "Anket ortalaması"),
+    ("[20] Karmaşık Örneklem", "Anket oranı (Taylor)",
+     f"20\n2\n{TMP}/svy.csv\ny\nx\n\n0\n", "Anket oranı"),
+    ("[20] Karmaşık Örneklem", "Anket lojistik regresyonu",
+     f"20\n3\n{TMP}/svy.csv\nb\ny\npsu\n0\n", "Survey Logistic"),
 ]
 
 # ---------------------------------------------------------------------------
 # Çalıştırma
 # ---------------------------------------------------------------------------
+
+
 def run_flows() -> list:
     """Tüm menü akışlarını çalıştırır; başarısız olan (menü, işlem, çıktı)
     üçlülerini döndürür. pytest ve betik giriş noktası tarafından paylaşılır."""

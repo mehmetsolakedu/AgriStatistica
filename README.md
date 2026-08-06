@@ -5,7 +5,8 @@ Agrista, tarım verilerini toplamak, analiz etmek ve görselleştirmek için tas
 ## Özellikler
 
 - 📊 **Veri Yönetimi**: Çiftlik verileri, toprak analizi, hava durumu, ürün verimleri; sıralama, birleştirme, ağırlıklandırma, yeniden yapılandırma, karşılaştırma
-- 📈 **İstatistiksel Analiz**: Betimsel istatistik, regresyon (OLS, WLS, 2SLS, multinomial/ordinal lojistik), ANOVA, Tukey/Duncan, parametrik olmayan testler, özel tablolar, çoklu yanıt frekansları
+- 📈 **İstatistiksel Analiz**: Betimsel istatistik, regresyon (OLS, WLS, 2SLS, multinomial/ordinal lojistik), GLM (tek değişkenli, tekrarlı ölçümler), GEE, GLMM, ANOVA, Tukey/Duncan, parametrik olmayan testler, özel tablolar, çoklu yanıt frekansları
+- 🧮 **Karmaşık Anket Tahminleri**: Taylor doğrusallaştırması ile ağırlıklı ortalama/toplam/oran, tasarım etkisi (DEFF), anket lojistik regresyonu (PSU, tabaka, ağırlık, FPC desteği)
 - 🗂️ **Sınıflandırma ve Boyut İndirgeme**: Ayrımsama analizi, TwoStep kümeleme, k-NN, MDS, faktör analizi, uyuşum analizi
 - ⏳ **Yaşam Analizi**: Kaplan-Meier, log-rank, yaşam tabloları, Cox regresyonu
 - 🔮 **Kestirim**: Hareketli ortalama, üstel düzleştirme, Holt-Winters, mevsimsel ayrıştırma, ARIMA
@@ -72,9 +73,15 @@ agrista corr veriler.csv --method spearman
 agrista tukey veriler.csv --yanit verim --grup uygulama
 agrista audpc hastalik.csv
 agrista dea girdi.csv cikti.csv --model BCC
+agrista glm veriler.csv --yanit verim --faktorler grup
+agrista gee panel.csv --yanit y --degiskenler x --grup isletme
+agrista glmm veriler.csv --yanit verim --sabitler gubre --grup parsel
+agrista svymean anket.csv --degisken gelir --agirlik w --psu psu
+agrista svyratio anket.csv --pay harcama --payda gelir --psu psu
+agrista svylogit anket.csv --yanit yanit --degiskenler gelir,yas --psu psu --agirlik w
 ```
 
-Ana menü kategorileri (Premium Program menü hiyerarşisiyle birebir, 19 kategori):
+Ana menü kategorileri (Premium Program menü hiyerarşisiyle birebir, 20 kategori):
 **[1] Dosya**, **[2] Betimsel İstatistikler** (özet, frekans, çapraz tablo,
 oran istatistikleri, normallik, Q-Q, P-P), **[3] Ortalamaların Karşılaştırılması**
 (tek örneklem, bağımsız, eşleştirilmiş t-testleri; ANOVA + Tukey; ortalama raporu),
@@ -90,7 +97,9 @@ lojistik/PLUM), **[9] Sınıflandırma** (ayrımsama, TwoStep kümeleme, k-NN),
 çoklu yanıt), **[17] Doğrudan Pazarlama** (RFM, kampanya testi, prospect profilleri),
 **[18] Veri Yönetimi** (sıralama, toplulaştırma, ağırlıklandırma, birleştirme,
 bölme, yineleme, devrik, yeniden yapılandırma, karşılaştırma, ölçüm düzeyi),
-**[19] Uzman Branş Modülleri** (Bitki Koruma, Tarım Ekonomisi vb.).
+**[19] Uzman Branş Modülleri** (Bitki Koruma, Tarım Ekonomisi vb.),
+**[20] Karmaşık Örneklem (Complex Samples)** (anket ortalaması/toplamı,
+anket oranı — Taylor doğrusallaştırması; anket lojistik regresyonu).
 
 ## Lisans
 

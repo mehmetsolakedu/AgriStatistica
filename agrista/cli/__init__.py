@@ -14,6 +14,9 @@ import click
 import pandas as pd
 import numpy as np
 
+from agrista.models import glmm as glmm_fit
+from agrista.survey import svy_mean, svy_ratio, survey_logistic
+
 
 def _load_file(filepath: str, sheet: int = 0):
     """CSV veya Excel dosyasını AgristaData olarak yükler."""
@@ -263,13 +266,71 @@ def _print_correspondence_result(result: dict):
     click.echo(f"\n   Sonuç: {sig}")
 
 
+def _print_glm_result(result: dict):
+    click.echo(f"\n📊 {result['model']}")
+    if result["model"] == "GLM Univariate":
+        click.echo(f"   R² = {result['r_squared']:.4f}  (n={result['n_obs']})")
+        click.echo("   Kaynak                SS        df    F        p")
+        for r in result["anova_table"]:
+            f_txt = f"{r['f_value']:8.3f}" if r["f_value"] is not None else "     -"
+            p_txt = f"{r['p_value']:.4f}" if r["p_value"] is not None else "-"
+            click.echo(f"   {r['source'][:20]:<20} {r['ss']:9.3f} {r['df']:4d} {f_txt} {p_txt:>8}")
+        for ad, eta in result["effect_sizes"].items():
+            click.echo(f"   Kısmi η² [{ad[:24]}] = {eta:.3f}")
+        if result["posthoc"]:
+            _print_tukey_result(result["posthoc"])
+    else:
+        w = result["within_effect"]
+        click.echo(f"   Within F({w['df1']:.0f},{w['df2']:.0f}) = "
+                   f"{w['f_value']:.3f}, p = {w['p_value']:.4f}")
+        m = result["mauchly"]
+        click.echo(f"   Mauchly W = {m['w']:.3f}, χ² = {m['chi2']:.2f}, "
+                   f"p = {m['p_value']:.4f}")
+        for ad in ("greenhouse_geisser", "huynh_feldt"):
+            c = result["corrected"][ad]
+            click.echo(f"   {ad}: ε = {result['epsilon'][ad]:.3f}, "
+                       f"p = {c['p_value']:.4f}")
+
+
+def _print_gee_result(result: dict):
+    click.echo(f"\n📈 {result['model']} — aile: {result['family']}, "
+               f"yapı: {result['cov_struct']}")
+    click.echo(f"   {result['n_groups']} grup, {result['n_obs']} gözlem, "
+               f"yakınsama: {'evet' if result['converged'] else 'hayır'}")
+    if result["qic"] is not None:
+        click.echo(f"   QIC = {result['qic']:.2f}")
+    click.echo("   Değişken        Katsayı     SE       z       p")
+    for ad, c in result["coefficients"].items():
+        click.echo(f"   {ad[:14]:<14} {c['coefficient']:9.4f} "
+                   f"{c['std_err']:8.4f} {c['z_value']:7.3f} "
+                   f"{c['p_value']:8.4f}")
+
+
+def _print_glmm_result(result: dict):
+    click.echo(f"\n🧬 {result['model']} — aile: {result['family']}, "
+               f"yöntem: {result['method']}")
+    click.echo(f"   {result['n_groups']} grup, {result['n_obs']} gözlem, "
+               f"yakınsama: {'evet' if result['converged'] else 'hayır'}"
+               + (f" ({result['n_iterations']} yineleme)"
+                  if result["method"] == "PQL" else ""))
+    click.echo("   Sabit etki      Katsayı     SE       z       p")
+    for ad, c in result["fixed_effects"].items():
+        click.echo(f"   {ad[:14]:<14} {c['coefficient']:9.4f} "
+                   f"{c['std_err']:8.4f} {c['z_value']:7.3f} "
+                   f"{c['p_value']:8.4f}")
+    ri = result["random_effects_variance"]["random_intercept"]
+    click.echo(f"   Rastgele kesim varyansı = {ri:.4f}")
+    if result["aic"] is not None:
+        click.echo(f"   AIC = {result['aic']:.2f}")
+
+
 # ---------------------------------------------------------------------------
 # Komut grubu ve alt komutlar
 # ---------------------------------------------------------------------------
 
 
 @click.group(invoke_without_command=True)
-@click.version_option(version="0.1.0", prog_name="Agrista")
+@click.version_option(version="0.2.0", prog_name="Agrista")
 @click.pass_context
 def main(ctx):
     """Agrista — Tarımsal İstatistik Yazılımı
@@ -499,6 +560,86 @@ def ordlogit(filepath: str, yanit: str, degiskenler: str):
         _print_ologit_result(ordinal_logistic_regression(df, yanit, predictors))
     except Exception as e:
         click.echo(f"❌ Hata: {e}")
+
+
+@main.command("glm")
+@click.argument("filepath")
+@click.option("--yanit", required=True, help="Bağımlı değişken sütunu")
+@click.option("--faktorler", required=True, help="Virgülle ayrılmış faktörler")
+@click.option("--kovaryeteler", default=None, help="Virgülle ayrılmış kovaryeteler")
+@click.option("--tip", default="3", type=click.Choice(["1", "2", "3"]), help="SS tipi")
+@click.option("--posthoc", default="tukey", type=click.Choice(["tukey", "duncan", "yok"]))
+@click.option("--within", default=None, help="Tekrarlı ölçüm sütunları (virgülle)")
+@click.option("--denek", default=None, help="Denek sütunu (--within ile)")
+def glm(filepath: str, yanit: str, faktorler: str, kovaryeteler: str,
+        tip: str, posthoc: str, within: str, denek: str):
+    """Genel Doğrusal Model (tek değişkenli / tekrarlı ölçüm)."""
+    from agrista.analysis import glm_univariate, glm_repeated_measures
+    df = _load_file(filepath).dataframe
+    try:
+        if within:
+            if not denek:
+                raise click.UsageError("--within ile --denek zorunludur")
+            result = glm_repeated_measures(
+                df, response_cols=[c.strip() for c in within.split(",")],
+                subject_col=denek)
+        else:
+            kov = [c.strip() for c in kovaryeteler.split(",")] if kovaryeteler else None
+            result = glm_univariate(
+                df, response=yanit,
+                between_factors=[f.strip() for f in faktorler.split(",")],
+                covariates=kov, ss_type=int(tip),
+                posthoc=None if posthoc == "yok" else posthoc)
+    except ValueError as e:
+        raise click.ClickException(str(e))
+    _print_glm_result(result)
+
+
+@main.command("gee")
+@click.argument("filepath")
+@click.option("--yanit", required=True, help="Bağımlı değişken sütunu")
+@click.option("--degiskenler", required=True, help="Virgülle ayrılmış açıklayıcılar")
+@click.option("--grup", required=True, help="Küme/grup sütunu")
+@click.option("--aile", default="gaussian",
+              type=click.Choice(["gaussian", "binomial", "poisson", "gamma"]))
+@click.option("--yapi", default="independent",
+              type=click.Choice(["independent", "exchangeable", "autoregressive"]))
+@click.option("--zaman", default=None, help="Zaman sütunu (autoregressive için)")
+def gee(filepath: str, yanit: str, degiskenler: str, grup: str,
+        aile: str, yapi: str, zaman: str):
+    """Genelleştirilmiş Tahmin Denklemleri (GEE)."""
+    from agrista.analysis import gee_model
+    df = _load_file(filepath).dataframe
+    try:
+        result = gee_model(df, response=yanit,
+                           covariates=[c.strip() for c in degiskenler.split(",")],
+                           group_col=grup, family=aile, cov_struct=yapi,
+                           time_col=zaman)
+    except ValueError as e:
+        raise click.ClickException(str(e))
+    _print_gee_result(result)
+
+
+@main.command("glmm")
+@click.argument("filepath")
+@click.option("--yanit", required=True, help="Bağımlı değişken sütunu")
+@click.option("--sabitler", required=True, help="Virgülle ayrılmış sabit etkiler")
+@click.option("--grup", required=True, help="Rastgele etki grup sütunu")
+@click.option("--aile", default="gaussian",
+              type=click.Choice(["gaussian", "binomial", "poisson"]))
+@click.option("--random-slope", default=None, help="Rastgele eğim değişkeni")
+def glmm(filepath: str, yanit: str, sabitler: str, grup: str,
+         aile: str, random_slope: str):
+    """Genelleştirilmiş doğrusal karışık model (GLMM)."""
+    df = _load_file(filepath).dataframe
+    try:
+        result = glmm_fit(df, response=yanit,
+                          fixed_effects=[c.strip() for c in sabitler.split(",")],
+                          groups_col=grup, family=aile,
+                          random_slope=random_slope)
+    except ValueError as e:
+        raise click.ClickException(str(e))
+    _print_glmm_result(result)
 
 
 @main.command()
@@ -873,6 +1014,102 @@ def twostep(filepath: str, kolonlar: str, maks_kume: int):
         click.echo(f"❌ Hata: {e}")
 
 
+def _print_svy_result(result: dict, baslik: str):
+    """Anket ortalama/toplam/oran tahminini yazdırır."""
+    click.echo(f"\n🧮 {baslik}")
+    click.echo(f"   Tahmin = {result['estimate']:.4f}  "
+               f"SE = {result['std_err']:.4f}")
+    click.echo(f"   %95 CI [{result['ci_lower']:.4f}, "
+               f"{result['ci_upper']:.4f}]")
+    if result.get("design_effect") is not None:
+        click.echo(f"   Tasarım etkisi (DEFF) = "
+                   f"{result['design_effect']:.3f}")
+    click.echo(f"   n = {result['n_obs']}, PSU = {result['n_psu']}, "
+               f"tabaka = {result['n_strata']}")
+
+
+def _print_svylogit_result(result: dict):
+    """Anket lojistik regresyon sonucunu yazdırır."""
+    click.echo(f"\n🧮 {result['model']}")
+    click.echo("   Değişken        Katsayı     SE       z       p")
+    for ad, c in result["coefficients"].items():
+        click.echo(f"   {ad[:14]:<14} {c['coefficient']:9.4f} "
+                   f"{c['std_err']:8.4f} {c['z_value']:7.3f} "
+                   f"{c['p_value']:8.4f}")
+    click.echo(f"   n = {result['n_obs']}, PSU = {result['n_psu']}")
+
+
+def _build_svy_design(df, agirlik, psu, tabaka, fpc):
+    """CLI/menü seçeneklerinden anket tasarım sözlüğü kurar."""
+    from agrista.survey import survey_design
+    return survey_design(df, weight_col=agirlik, id_col=psu,
+                         strata_col=tabaka, fpc_col=fpc)
+
+
+@main.command("svymean")
+@click.argument("filepath")
+@click.option("--degisken", required=True, help="Tahmin edilecek değişken")
+@click.option("--agirlik", default=None, help="Ağırlık sütunu")
+@click.option("--psu", default=None, help="PSU (birincil örnekleme birimi) sütunu")
+@click.option("--tabaka", default=None, help="Tabaka sütunu")
+@click.option("--fpc", default=None, help="FPC (tabaka popülasyon PSU sayısı) sütunu")
+def svymean(filepath: str, degisken: str, agirlik: str, psu: str,
+            tabaka: str, fpc: str):
+    """Anket ortalaması (Taylor linearizasyonu)."""
+    from agrista.survey import svy_mean
+    df = _load_file(filepath).dataframe
+    try:
+        design = _build_svy_design(df, agirlik, psu, tabaka, fpc)
+        result = svy_mean(design, degisken)
+    except ValueError as e:
+        raise click.ClickException(str(e))
+    _print_svy_result(result, "Anket ortalaması")
+
+
+@main.command("svyratio")
+@click.argument("filepath")
+@click.option("--pay", required=True, help="Pay değişkeni")
+@click.option("--payda", required=True, help="Payda değişkeni")
+@click.option("--agirlik", default=None, help="Ağırlık sütunu")
+@click.option("--psu", default=None, help="PSU sütunu")
+@click.option("--tabaka", default=None, help="Tabaka sütunu")
+@click.option("--fpc", default=None, help="FPC sütunu")
+def svyratio(filepath: str, pay: str, payda: str, agirlik: str, psu: str,
+             tabaka: str, fpc: str):
+    """Anket oranı (Taylor linearizasyonu)."""
+    from agrista.survey import svy_ratio
+    df = _load_file(filepath).dataframe
+    try:
+        design = _build_svy_design(df, agirlik, psu, tabaka, fpc)
+        result = svy_ratio(design, numerator=pay, denominator=payda)
+    except ValueError as e:
+        raise click.ClickException(str(e))
+    _print_svy_result(result, "Anket oranı")
+
+
+@main.command("svylogit")
+@click.argument("filepath")
+@click.option("--yanit", required=True, help="0/1 yanıt değişkeni")
+@click.option("--degiskenler", required=True, help="Virgülle ayrılmış açıklayıcılar")
+@click.option("--agirlik", default=None, help="Ağırlık sütunu")
+@click.option("--psu", required=True, help="PSU sütunu (zorunlu)")
+@click.option("--tabaka", default=None, help="Tabaka sütunu")
+@click.option("--fpc", default=None, help="FPC sütunu")
+def svylogit(filepath: str, yanit: str, degiskenler: str, agirlik: str,
+             psu: str, tabaka: str, fpc: str):
+    """Anket lojistik regresyonu (kümelenmiş robust SE)."""
+    from agrista.survey import survey_logistic
+    df = _load_file(filepath).dataframe
+    try:
+        design = _build_svy_design(df, agirlik, psu, tabaka, fpc)
+        result = survey_logistic(design, response=yanit,
+                                 predictors=[c.strip()
+                                             for c in degiskenler.split(",")])
+    except ValueError as e:
+        raise click.ClickException(str(e))
+    _print_svylogit_result(result)
+
+
 # ---------------------------------------------------------------------------
 # Etkileşimli ana menü
 # ---------------------------------------------------------------------------
@@ -893,7 +1130,7 @@ def _print_banner():
     click.echo("")
     for line in _LOGO.splitlines():
         click.secho(line, fg="green", bold=True)
-    click.secho("      ── Tarımsal İstatistik Yazılımı · v0.1.0 ──",
+    click.secho("      ── Tarımsal İstatistik Yazılımı · v0.2.0 ──",
                 fg="yellow")
     click.echo("")
 
@@ -919,6 +1156,8 @@ def _build_menu_structure():
             ("Eşleştirilmiş iki örneklem t-testi", _menu_paired),
             ("Tek yönlü ANOVA + Tukey HSD", _menu_oneway_anova),
             ("Ortalama raporu (Means)", _menu_means),
+            ("Genel Doğrusal Model (Tek Değişkenli)", _menu_glm),
+            ("Tekrarlı Ölçümler (GLM)", _menu_glm_rm),
         ]),
         ("🔗 Korelasyon", [
             ("İki değişkenli korelasyon (Pearson/Spearman)", _menu_corr),
@@ -943,6 +1182,8 @@ def _build_menu_structure():
         ("📈 Regresyon", [
             ("Multinomial lojistik regresyon", _menu_multinom),
             ("Ordinal lojistik regresyon (PLUM)", _menu_ordlogit),
+            ("GEE (Genelleştirilmiş Tahmin Denklemleri)", _menu_gee),
+            ("GLMM (Genelleştirilmiş Karışık Model)", _menu_glmm),
         ]),
         ("🗂️ Sınıflandırma", [
             ("Ayrımsama analizi (Discriminant)", _menu_discriminant),
@@ -992,6 +1233,11 @@ def _build_menu_structure():
         ("🌿 Uzman Branş Modülleri", [
             ("Bitki Koruma — AUDPC (hastalık ilerlemesi)", _menu_audpc),
             ("Tarım Ekonomisi — DEA etkinlik analizi", _menu_dea),
+        ]),
+        ("🧮 Karmaşık Örneklem (Complex Samples)", [
+            ("Anket ortalaması/toplamı (Taylor)", _menu_svymean),
+            ("Anket oranı (Taylor)", _menu_svyratio),
+            ("Anket lojistik regresyonu", _menu_svylogit),
         ]),
     ]
 
@@ -1115,6 +1361,36 @@ def _menu_oneway_anova():
         _print_tukey_result(posthoc_tukey(df, yanit, grup))
 
 
+def _menu_glm():
+    from agrista.analysis import glm_univariate
+
+    path = _ask_file("Veri dosyası yolu (CSV/Excel)")
+    df = _load_file(path).dataframe
+    yanit = _ask_column(df, "Bağımlı değişken sütunu")
+    faktorler = _prompt_or_eof("Faktörler (virgülle ayrılmış)", default="")
+    if not faktorler:
+        raise click.exceptions.Abort()
+    result = glm_univariate(
+        df, response=yanit,
+        between_factors=[f.strip() for f in faktorler.split(",")])
+    _print_glm_result(result)
+
+
+def _menu_glm_rm():
+    from agrista.analysis import glm_repeated_measures
+
+    path = _ask_file("Veri dosyası yolu (CSV/Excel)")
+    df = _load_file(path).dataframe
+    within = _prompt_or_eof("Tekrarlı ölçüm sütunları (virgülle ayrılmış)")
+    if not within:
+        raise click.exceptions.Abort()
+    denek = _ask_column(df, "Denek sütunu")
+    result = glm_repeated_measures(
+        df, response_cols=[c.strip() for c in within.split(",")],
+        subject_col=denek)
+    _print_glm_result(result)
+
+
 def _menu_normality():
     from agrista.analysis import normality_test
     
@@ -1150,6 +1426,48 @@ def _menu_dea():
     inputs = pd.read_csv(girdi, index_col=0)
     outputs = pd.read_csv(cikti, index_col=0)
     _print_dea_result(dea_efficiency(inputs, outputs, model=model), model)
+
+
+def _menu_svymean():
+    """Menü: Anket ortalaması/toplamı (Taylor linearizasyonu)."""
+    path = _ask_file("Veri dosyası yolu")
+    df = _load_file(path).dataframe
+    degisken = _ask_column(df, "Tahmin edilecek değişken")
+    agirlik = _prompt_or_eof("Ağırlık sütunu (yoksa boş bırak)", default="")
+    psu = _prompt_or_eof("PSU sütunu (yoksa boş bırak)", default="")
+    tabaka = _prompt_or_eof("Tabaka sütunu (yoksa boş bırak)", default="")
+    design = _build_svy_design(df, agirlik or None, psu or None,
+                               tabaka or None, None)
+    result = svy_mean(design, degisken)
+    _print_svy_result(result, "Anket ortalaması")
+
+
+def _menu_svyratio():
+    """Menü: Anket oranı (Taylor linearizasyonu)."""
+    path = _ask_file("Veri dosyası yolu")
+    df = _load_file(path).dataframe
+    pay = _ask_column(df, "Pay değişkeni")
+    payda = _ask_column(df, "Payda değişkeni")
+    psu = _prompt_or_eof("PSU sütunu (yoksa boş bırak)", default="")
+    design = _build_svy_design(df, None, psu or None, None, None)
+    result = svy_ratio(design, numerator=pay, denominator=payda)
+    _print_svy_result(result, "Anket oranı")
+
+
+def _menu_svylogit():
+    """Menü: Anket lojistik regresyonu."""
+    path = _ask_file("Veri dosyası yolu")
+    df = _load_file(path).dataframe
+    yanit = _ask_column(df, "0/1 yanıt değişkeni")
+    degiskenler = _prompt_or_eof("Açıklayıcılar (virgülle)")
+    psu = _ask_column(df, "PSU sütunu")
+    if not degiskenler:
+        raise click.exceptions.Abort()
+    design = _build_svy_design(df, None, psu, None, None)
+    result = survey_logistic(design, response=yanit,
+                             predictors=[c.strip()
+                                         for c in degiskenler.split(",")])
+    _print_svylogit_result(result)
 
 
 def _default_output(path: str, suffix: str = "_donusmus") -> str:
@@ -1579,6 +1897,41 @@ def _menu_ordlogit():
     yanit = _ask_column(df, "Bağımlı değişken sütunu (≥3 sıralı kategori)")
     predictors = _ask_predictors(df)
     _print_ologit_result(ordinal_logistic_regression(df, yanit, predictors))
+
+
+def _menu_gee():
+    from agrista.analysis import gee_model
+
+    path = _ask_file("Veri dosyası yolu (CSV/Excel)")
+    df = _load_file(path).dataframe
+    yanit = _ask_column(df, "Bağımlı değişken sütunu")
+    degiskenler = _prompt_or_eof("Açıklayıcı değişkenler (virgülle)")
+    if not degiskenler:
+        raise click.exceptions.Abort()
+    grup = _ask_column(df, "Küme/grup sütunu")
+    result = gee_model(df, response=yanit,
+                       covariates=[c.strip() for c in degiskenler.split(",")],
+                       group_col=grup)
+    _print_gee_result(result)
+
+
+def _menu_glmm():
+    path = _ask_file("Veri dosyası yolu (CSV/Excel)")
+    df = _load_file(path).dataframe
+    yanit = _ask_column(df, "Bağımlı değişken")
+    sabitler = _prompt_or_eof("Sabit etkiler (virgülle)")
+    if not sabitler:
+        raise click.exceptions.Abort()
+    grup = _ask_column(df, "Rastgele etki grup sütunu")
+    aile = _prompt_or_eof("Aile (gaussian/binomial/poisson)",
+                          default="gaussian")
+    try:
+        result = glmm_fit(df, response=yanit,
+                          fixed_effects=[c.strip() for c in sabitler.split(",")],
+                          groups_col=grup, family=aile)
+    except ValueError as e:
+        raise click.ClickException(str(e))
+    _print_glmm_result(result)
 
 
 def _menu_discriminant():
