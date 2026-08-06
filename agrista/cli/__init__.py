@@ -16,6 +16,9 @@ import numpy as np
 
 from agrista.models import glmm as glmm_fit
 from agrista.survey import svy_mean, svy_ratio, survey_logistic
+from agrista.viz import AgristaPlotter
+from agrista.viz.interactive import build_dashboard
+from agrista.viz.auto_eda import auto_eda
 
 
 def _load_file(filepath: str, sheet: int = 0):
@@ -1386,6 +1389,14 @@ def _build_menu_structure():
             ("Anket oranı (Taylor)", _menu_svyratio),
             ("Anket lojistik regresyonu", _menu_svylogit),
         ]),
+        ("🎨 Grafikler", [
+            ("Hızlı grafik (plot)", _menu_plot),
+            ("Dağılım grafikleri (violin/ridge/raincloud)", _menu_dagilim),
+            ("Tanı grafikleri (Q-Q, artık, Bland-Altman)", _menu_tani),
+            ("Model grafikleri (ROC, sağkalım, orman, büyüme eğrisi)", _menu_model),
+            ("Etkileşimli dashboard", _menu_dashboard),
+            ("Otomatik keşif (Auto-EDA)", _menu_autoeda),
+        ]),
     ]
 
 
@@ -2378,6 +2389,70 @@ def _menu_timeseries():
     periods = click.prompt("Periyot", default=1, type=int)
     result = create_time_series(df, col, function=islev, periods=periods)
     _save_output(result, _default_output(path, suffix="_seri"))
+
+
+def _menu_plot():
+    path = _ask_file("Veri dosyası yolu")
+    df = _load_file(path).dataframe
+    x_col = _ask_column(df, "Grafiğin X/değişken sütunu")
+    tema = _prompt_or_eof("Tema (agrista/yayin/minimal/karanlik)",
+                          default="agrista")
+    cikti = _prompt_or_eof("Kayıt yolu", default="agrista_grafik.png")
+    p = AgristaPlotter(theme=tema)
+    fig = p.histogram(df[x_col].dropna(), title=f"{x_col} Dağılımı")
+    p.save(cikti, fig=fig)
+    AgristaPlotter.close()
+
+
+def _menu_dagilim():
+    path = _ask_file("Veri dosyası yolu")
+    df = _load_file(path).dataframe
+    y_col = _ask_column(df, "Sayısal değişken")
+    grup = _ask_column(df, "Grup sütunu")
+    cikti = _prompt_or_eof("Kayıt yolu", default="violin.png")
+    p = AgristaPlotter()
+    fig = p.violin_plot(df, x_col=grup, y_col=y_col)
+    p.save(cikti, fig=fig)
+    AgristaPlotter.close()
+
+
+def _menu_tani():
+    path = _ask_file("Veri dosyası yolu")
+    df = _load_file(path).dataframe
+    x_col = _ask_column(df, "Değişken")
+    cikti = _prompt_or_eof("Kayıt yolu", default="qq.png")
+    p = AgristaPlotter()
+    fig = p.qq_plot(df[x_col].dropna())
+    p.save(cikti, fig=fig)
+    AgristaPlotter.close()
+
+
+def _menu_model():
+    path = _ask_file("Veri dosyası yolu")
+    df = _load_file(path).dataframe
+    gercek = _ask_column(df, "Gerçek sınıf (0/1)")
+    skor = _ask_column(df, "Skor sütunu")
+    cikti = _prompt_or_eof("Kayıt yolu", default="roc.png")
+    p = AgristaPlotter()
+    fig = p.roc_plot(df[gercek], df[skor])
+    p.save(cikti, fig=fig)
+    AgristaPlotter.close()
+
+
+def _menu_dashboard():
+    path = _ask_file("Veri dosyası yolu")
+    df = _load_file(path).dataframe
+    cikti = _prompt_or_eof("Kayıt yolu", default="dashboard.html")
+    res = build_dashboard(df, cikti)
+    click.echo(f"Panel oluşturuldu: {res['path']}")
+
+
+def _menu_autoeda():
+    path = _ask_file("Veri dosyası yolu")
+    df = _load_file(path).dataframe
+    dizin = _prompt_or_eof("Çıktı dizini", default="agrista_eda")
+    res = auto_eda(df, dizin)
+    click.echo(f"Rapor: {res['html_path']}")
 
 
 def run_interactive_menu():

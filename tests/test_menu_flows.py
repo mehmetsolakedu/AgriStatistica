@@ -1,6 +1,6 @@
 """Etkileşimli menü akışlarının pytest'e entegrasyonu.
 
-`menu_smoke_test.py` içindeki 61 akışın her biri ayrı bir parametrize
+`menu_smoke_test.py` içindeki 65 akışın her biri ayrı bir parametrize
 vakası olarak çalıştırılır; böylece menü işleyicileri pytest kapsam
 raporuna dahil olur.
 """

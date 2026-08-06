@@ -408,3 +408,45 @@ CLI — `agrista/cli`:
 Test kaydı: `tests/test_premium_survey.py`; menü akışları
 `menu_smoke_test.py` üzerinden `tests/test_menu_flows.py`'de
 parametrize edilir (58 → 61 akış).
+
+## Güncelleme 6 — Görselleştirme Hamlesi
+
+### Grafik Kütüphanesi (`agrista/viz`)
+
+- ✅ `AgristaPlotter` — 33 metotlu statik grafik sınıfı; violin, ridge,
+  raincloud, pair grid, orman (forest), Bland-Altman, ROC, sağkalım
+  (Kaplan-Meier), kontrol grafiği, artık, hexbin, yığılmış alan, büyüme
+  eğrisi, eğim (slope) grafikleriyle birlikte 16 yeni grafik tipi;
+  tema sistemi (`self._palette`/`self._theme`) — agrista/yayın/minimal/
+  karanlık temaları (`agrista/viz/themes.py`)
+- ✅ Dışa aktarım: `save`, `save_multi` (PNG+SVG), `export_html`
+  (tek dosyalık base64 HTML raporu)
+- ✅ `agrista/viz/interactive.py` — plotly tabanlı 6 etkileşimli fonk
+  (scatter, line, bar, heatmap, box, histogram) + `build_dashboard`
+  (tek HTML keşif paneli)
+- ✅ `agrista/viz/auto_eda.py` — auto-EDA motoru: `infer_column_types`
+  (sayisal/kategorik/tarih/metin), `chart_suggestion` (tür kurallarına
+  göre deterministik öneri listesi), `auto_eda` (öneriler + PNG'ler +
+  `report.html`)
+
+### CLI komutları (`agrista/cli`)
+
+- ✅ `agrista plot` — hızlı grafik (histogram/scatter/box/violin/bar/
+  heat/qq/cizgi/errorbar, `--tema` seçimi)
+- ✅ `agrista plot-forest`, `agrista plot-roc`, `agrista plot-survival`
+- ✅ `agrista dashboard` — etkileşimli keşif paneli (tek HTML)
+- ✅ `agrista autoeda` — otomatik keşif raporu
+
+### Menü
+
+- ✅ YENİ menü kategorisi `[21] 🎨 Grafikler`: `[1] Hızlı grafik (plot)`,
+  `[2] Dağılım grafikleri (violin/ridge/raincloud)`,
+  `[3] Tanı grafikleri (Q-Q, artık, Bland-Altman)`,
+  `[4] Model grafikleri (ROC, sağkalım, orman, büyüme eğrisi)`,
+  `[5] Etkileşimli dashboard`, `[6] Otomatik keşif (Auto-EDA)`
+  (kategori sayısı 20 → 21)
+
+Test kaydı: `tests/test_viz_cli.py`, `tests/test_viz_autoeda.py`,
+`tests/test_viz_interactive.py`, `tests/test_viz_premium.py`,
+`tests/test_viz_themes.py`; menü akışları `menu_smoke_test.py` üzerinden
+`tests/test_menu_flows.py`'de parametrize edilir (61 → 65 akış).

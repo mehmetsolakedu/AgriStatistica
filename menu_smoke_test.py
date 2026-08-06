@@ -1,4 +1,4 @@
-"""Agrista etkileşimli menü duman testi — 20 kategorinin tüm işlemleri
+"""Agrista etkileşimli menü duman testi — 21 kategorinin tüm işlemleri
 CliRunner ile betikli girdi üzerinden uçtan uca çalıştırılır."""
 
 import os
@@ -332,6 +332,17 @@ FLOWS = [
      f"20\n2\n{TMP}/svy.csv\ny\nx\n\n0\n", "Anket oranı"),
     ("[20] Karmaşık Örneklem", "Anket lojistik regresyonu",
      f"20\n3\n{TMP}/svy.csv\nb\ny\npsu\n0\n", "Survey Logistic"),
+
+    ("🎨 Grafikler", "Hızlı grafik (plot)",
+     f"21\n1\n{TMP}/farm.csv\nverim\nagrista\n{out('grafik.png')}\n0\n",
+     "kaydedildi"),
+    ("🎨 Grafikler", "Model grafikleri (ROC, sağkalım, orman, büyüme eğrisi)",
+     f"21\n4\n{TMP}/roc.csv\nactual\nscore\n{out('model.png')}\n0\n",
+     "kaydedildi"),
+    ("🎨 Grafikler", "Etkileşimli dashboard",
+     f"21\n5\n{TMP}/farm.csv\n{out('panel.html')}\n0\n", "Panel"),
+    ("🎨 Grafikler", "Otomatik keşif (Auto-EDA)",
+     f"21\n6\n{TMP}/farm.csv\n{out('eda')}\n0\n", "Rapor"),
 ]
 
 # ---------------------------------------------------------------------------
