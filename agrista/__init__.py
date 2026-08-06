@@ -32,6 +32,7 @@ from agrista import forecasting  # Premium Program Forecasting: Holt-Winters, AR
 from agrista import survival     # Premium Program Survival: Kaplan-Meier, log-rank
 from agrista import quality      # Premium Program Quality Control: X-bar/R, p, Pareto
 from agrista import marketing    # Premium Program Direct Marketing: RFM, mailing, profil
+from agrista import survey       # Premium Program Complex Samples: Taylor
 
 __all__ = [
     "__version__",
@@ -62,4 +63,5 @@ __all__ = [
     "survival",
     "quality",
     "marketing",
+    "survey",
 ]
