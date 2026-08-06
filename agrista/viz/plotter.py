@@ -32,7 +32,134 @@ class AgristaPlotter:
         """Gerekirse yeni figür oluştur."""
         if not plt.get_fignums():
             plt.figure()
-    
+
+    def _dogrula_sutunlar(self, data: pd.DataFrame, cols: list):
+        """Verilen sütun adlarının DataFrame'de varlığını doğrular."""
+        eksik = [c for c in cols if c and c not in data.columns]
+        if eksik:
+            raise ValueError(f"Sütun bulunamadı: {eksik}")
+
+    def violin_plot(self, data: pd.DataFrame, x_col: str, y_col: str,
+                    hue: str = None,
+                    title: str = "Violin Grafiği") -> plt.Figure:
+        """Violin grafiği — grup bazında dağılım yoğunluğu."""
+        self._dogrula_sutunlar(data, [x_col, y_col, hue])
+        self._ensure_fig()
+        fig, ax = plt.subplots(figsize=(10, 6))
+        sns.violinplot(data=data, x=x_col, y=y_col, hue=hue, inner="box",
+                       palette=self._palette, ax=ax)
+        ax.set_title(title, fontsize=14, fontweight="bold")
+        plt.tight_layout()
+        return fig
+
+    def raincloud_plot(self, data: pd.DataFrame, y_col: str, group_col: str,
+                       title: str = "Raincloud Grafiği") -> plt.Figure:
+        """Raincloud grafiği — yarım yoğunluk + kutu + jitter noktaları."""
+        self._dogrula_sutunlar(data, [y_col, group_col])
+        work = data[[y_col, group_col]].dropna()
+        groups = sorted(work[group_col].unique(), key=str)
+        if len(groups) < 2:
+            raise ValueError("Raincloud için en az 2 grup gerekli")
+        self._ensure_fig()
+        fig, ax = plt.subplots(figsize=(10, 6))
+        for i, g in enumerate(groups):
+            vals = work.loc[work[group_col] == g, y_col].to_numpy(
+                dtype=float)
+            renk = self._palette[i % len(self._palette)]
+            kde = stats.gaussian_kde(vals)
+            xs = np.linspace(vals.min(), vals.max(), 200)
+            dens = kde(xs)
+            dens = dens / dens.max() * 0.45
+            ax.fill_betweenx(xs, i - dens, i, color=renk, alpha=0.55)
+            ax.boxplot([vals], positions=[i + 0.18], widths=0.1,
+                       patch_artist=True, showfliers=False,
+                       boxprops={"facecolor": renk, "alpha": 0.85})
+            rng = np.random.default_rng(i)
+            jit = i + 0.34 + rng.uniform(-0.035, 0.035, len(vals))
+            ax.scatter(jit, vals, s=14, alpha=0.45, color=renk)
+        ax.set_xticks(range(len(groups)))
+        ax.set_xticklabels([str(g) for g in groups])
+        ax.set_ylabel(y_col)
+        ax.set_title(title, fontsize=14, fontweight="bold")
+        plt.tight_layout()
+        return fig
+
+    def ridge_plot(self, data: pd.DataFrame, value_col: str, group_col: str,
+                   title: str = "Ridge (Joyplot) Grafiği") -> plt.Figure:
+        """Ridge grafiği — üst üste kaymış grup yoğunlukları."""
+        self._dogrula_sutunlar(data, [value_col, group_col])
+        work = data[[value_col, group_col]].dropna()
+        groups = sorted(work[group_col].unique(), key=str)
+        if len(groups) < 2:
+            raise ValueError("Ridge için en az 2 grup gerekli")
+        self._ensure_fig()
+        fig, ax = plt.subplots(figsize=(10, 7))
+        step = 1.0
+        for i, g in enumerate(groups):
+            vals = work.loc[work[group_col] == g, value_col].to_numpy(
+                dtype=float)
+            kde = stats.gaussian_kde(vals)
+            xs = np.linspace(vals.min(), vals.max(), 200)
+            dens = kde(xs)
+            dens = dens / dens.max() * step * 0.9
+            renk = self._palette[i % len(self._palette)]
+            ax.fill_between(xs, i * step, i * step + dens, color=renk,
+                            alpha=0.65)
+            ax.plot(xs, i * step + dens, color=renk, linewidth=1.5)
+        ax.set_yticks([i * step for i in range(len(groups))])
+        ax.set_yticklabels([str(g) for g in groups])
+        ax.set_xlabel(value_col)
+        ax.set_title(title, fontsize=14, fontweight="bold")
+        plt.tight_layout()
+        return fig
+
+    def pair_grid(self, data: pd.DataFrame, cols: list, hue: str = None,
+                  title: str = "Pair Grid"):
+        """Çok değişkenli scatter matrisi (en çok 6 sütun).
+
+        seaborn PairGrid döndürür; ``.axes`` (n, n) ndarray'dır,
+        ``.figure`` ile Figure'e erişilir.
+        """
+        kolonlar = list(cols) + ([hue] if hue else [])
+        self._dogrula_sutunlar(data, kolonlar)
+        if len(cols) < 2:
+            raise ValueError("Pair grid için en az 2 sütun gerekli")
+        if len(cols) > 6:
+            raise ValueError("Pair grid en çok 6 sütun destekler")
+        sayisal = data[list(cols)].select_dtypes(include=[np.number])
+        if sayisal.shape[1] != len(cols):
+            raise ValueError("Pair grid sütunları sayısal olmalı")
+        g = sns.pairplot(data, vars=list(cols), hue=hue,
+                         palette=self._palette)
+        g.figure.suptitle(title, y=1.02, fontsize=14, fontweight="bold")
+        return g
+
+    def grouped_boxplot(self, data: pd.DataFrame, y_col: str, x_col: str,
+                        hue_col: str,
+                        title: str = "Gruplu Kutu Grafiği") -> plt.Figure:
+        """İki faktörlü kutu grafiği (x × hue)."""
+        self._dogrula_sutunlar(data, [y_col, x_col, hue_col])
+        self._ensure_fig()
+        fig, ax = plt.subplots(figsize=(10, 6))
+        sns.boxplot(data=data, x=x_col, y=y_col, hue=hue_col,
+                    palette=self._palette, ax=ax)
+        ax.set_title(title, fontsize=14, fontweight="bold")
+        plt.tight_layout()
+        return fig
+
+    def strip_plot(self, data: pd.DataFrame, x_col: str, y_col: str,
+                   jitter: bool = True,
+                   title: str = "Strip Grafiği") -> plt.Figure:
+        """Strip (nokta) grafiği — bireysel gözlemler."""
+        self._dogrula_sutunlar(data, [x_col, y_col])
+        self._ensure_fig()
+        fig, ax = plt.subplots(figsize=(10, 6))
+        sns.stripplot(data=data, x=x_col, y=y_col, jitter=jitter,
+                      palette=self._palette, ax=ax, alpha=0.7)
+        ax.set_title(title, fontsize=14, fontweight="bold")
+        plt.tight_layout()
+        return fig
+
     def histogram(
         self,
         data: pd.Series | np.ndarray,
