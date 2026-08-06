@@ -91,3 +91,31 @@ class TestGrafikEntegrasyon:
     def test_veri_acilinca_panel_guncellenir(self, pencere, tmp_path):
         pencere.open_file(_csv(tmp_path))
         assert pencere.grafik_paneli.df is pencere.df
+
+
+class TestGuncellemeMenusu:
+    def test_denetim_ag_hatasi_bilgisi(self, pencere, qtbot, monkeypatch):
+        from PySide6.QtWidgets import QMessageBox
+        import agrista.gui.updater as up
+        mesajlar = []
+        monkeypatch.setattr(up, "check_update", lambda *a, **k: None)
+        monkeypatch.setattr(QMessageBox, "information",
+                            staticmethod(lambda ebeveyn, baslik, metin:
+                                         mesajlar.append(metin)))
+        pencere._guncelleme_denetle()
+        assert any("denetim" in m.lower() or "denetle" in m.lower()
+                   for m in mesajlar)
+
+    def test_denetim_yeni_surum(self, pencere, qtbot, monkeypatch):
+        from PySide6.QtWidgets import QMessageBox
+        import agrista.gui.updater as up
+        mesajlar = []
+        monkeypatch.setattr(up, "check_update", lambda *a, **k:
+                            {"en_yeni": "9.9.9", "notes": "n",
+                             "url": {}, "platform_url": None,
+                             "guncelleme_var": True})
+        monkeypatch.setattr(QMessageBox, "information",
+                            staticmethod(lambda ebeveyn, baslik, metin:
+                                         mesajlar.append(metin)))
+        pencere._guncelleme_denetle()
+        assert any("9.9.9" in m for m in mesajlar)

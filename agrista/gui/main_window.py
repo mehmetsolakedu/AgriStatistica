@@ -144,5 +144,20 @@ class MainWindow(QMainWindow):
         self.setStyleSheet(tema_qss(ad))
 
     def _guncelleme_denetle(self):
-        QMessageBox.information(self, "Güncellemeler",
-                                "Güncelleme denetimi Plan 5'te bağlanacak.")
+        from agrista import __version__
+        from agrista.gui import updater
+        bilgi = updater.check_update(__version__)
+        if bilgi is None:
+            QMessageBox.information(
+                self, "Güncellemeler",
+                "Güncelleme denetimi yapılamadı (ağ bağlantısı yok "
+                "veya sunucuya erişilemiyor).")
+        elif bilgi["guncelleme_var"]:
+            QMessageBox.information(
+                self, "Güncellemeler",
+                f"Yeni sürüm var: {bilgi['en_yeni']}\n"
+                f"{bilgi['notes']}\nİndirme sayfası: Releases.")
+        else:
+            QMessageBox.information(
+                self, "Güncellemeler",
+                f"Agrista güncel ({__version__}).")
