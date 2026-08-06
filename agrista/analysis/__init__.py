@@ -2256,3 +2256,74 @@ def glm_repeated_measures(data: pd.DataFrame, response_cols: list,
         "between_effect": between_effect,
         "n_subjects": int(n_subj),
     }
+
+
+def gee_model(data: pd.DataFrame, response: str, covariates: list,
+              group_col: str, family: str = "gaussian",
+              cov_struct: str = "independent",
+              time_col: Optional[str] = None) -> dict:
+    """Genelleştirilmiş Tahmin Denklemleri (GEE) — marjinal model.
+
+    Premium Program GEE denkliği: kümelenmiş/korelasyonlu veri için
+    population-averaged katsayılar, robust (sandwich) standart hatalar,
+    çalışma korelasyon yapısı ve QIC.
+    """
+    import statsmodels.formula.api as smf
+
+    cols = [response, group_col] + list(covariates)
+    _check_columns(data, cols)
+    work = data[cols + ([time_col] if time_col else [])].dropna()
+    if work[group_col].nunique() < 2:
+        raise ValueError("GEE için en az 2 grup gerekli")
+
+    families = {"gaussian": sm.families.Gaussian,
+                "binomial": sm.families.Binomial,
+                "poisson": sm.families.Poisson,
+                "gamma": sm.families.Gamma}
+    if family not in families:
+        raise ValueError(f"Bilinmeyen aile: {family}")
+    if family == "binomial" and not work[response].isin([0, 1]).all():
+        raise ValueError("Binomial aile için yanıt 0/1 olmalı")
+
+    # Not: kurulu statsmodels sürümü kovaryans yapısını örnek (instance)
+    # olarak bekler; dize takma adları desteklenmez. Autoregressive için
+    # grid=True sayısal kök bulma kararlılığı sağlar.
+    structs = {"independent": sm.cov_struct.Independence,
+               "exchangeable": sm.cov_struct.Exchangeable,
+               "autoregressive": lambda: sm.cov_struct.Autoregressive(
+                   grid=True)}
+    if cov_struct not in structs:
+        raise ValueError(f"Bilinmeyen korelasyon yapısı: {cov_struct}")
+    if cov_struct == "autoregressive" and time_col is None:
+        raise ValueError("Autoregressive yapı için time_col gerekli")
+
+    formula = f"{response} ~ {' + '.join(covariates)}"
+    model = smf.gee(formula, groups=group_col, data=work,
+                    family=families[family](),
+                    cov_struct=structs[cov_struct](),
+                    time=time_col)
+    fitted = model.fit()
+
+    coefficients = {}
+    for ad in fitted.params.index:
+        coefficients[ad] = {
+            "coefficient": float(fitted.params[ad]),
+            "std_err": float(fitted.bse[ad]),
+            "z_value": float(fitted.tvalues[ad]),
+            "p_value": float(fitted.pvalues[ad]),
+        }
+    try:
+        qic = float(fitted.qic())
+    except (AttributeError, TypeError):
+        qic = None
+
+    return {
+        "model": "GEE",
+        "family": family,
+        "cov_struct": cov_struct,
+        "coefficients": coefficients,
+        "qic": qic,
+        "n_groups": int(work[group_col].nunique()),
+        "n_obs": int(len(work)),
+        "converged": bool(fitted.converged),
+    }
