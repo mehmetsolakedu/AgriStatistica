@@ -317,7 +317,7 @@ Test kaydı: `tests/test_premium_wave4.py` (75+ test).
 boşluk kalmadı. Kapsam dışı bırakılanlar yalnızca terminal ortamında
 karşılığı olmayan GUI öğeleridir: Edit/View/Window menüleri, Chart
 Builder sürükle-bırak arayüzü, Interactive grafikler, Extensions Hub.
-Kısmi kalanlar: GLMM (2.6), karmaşık anket Taylor
+Kısmi kalanlar: karmaşık anket Taylor
 doğrusallaştırması (2.18).
 
 ## Güncelleme 5 — Kalan Boşlukların Kapatılması
@@ -360,6 +360,28 @@ CLI — `agrista/cli`:
   `[3] GEE (Genelleştirilmiş Tahmin Denklemleri)`
 
 Test kaydı: `tests/test_premium_gee.py`; menü akışları
+`menu_smoke_test.py` üzerinden `tests/test_menu_flows.py`'de
+parametrize edilir.
+
+### GLMM (Generalized Linear Mixed Models)
+
+Analiz implementasyonu — `agrista/models`:
+- ✅ `glmm` — genelleştirilmiş doğrusal karışık model:
+  gaussian aile REML (statsmodels MixedLM), binomial/poisson aileler
+  PQL (Breslow & Clayton 1993 penalize kuazi-olabilirlik) yinelemesi;
+  rastgele kesim varyansı, Wald z/p, isteğe bağlı rastgele eğim.
+  Not: statsmodels 0.14.6 MixedLM `freq_weights` kabul etmediği için
+  PQL'nin ağırlıklı LMM adımı profil REML (sabit çalışma ölçeği)
+  olarak modül içinde çözümlenir.
+
+CLI — `agrista/cli`:
+- ✅ `agrista glmm` komutu (`--yanit`, `--sabitler`, `--grup`,
+  `--aile`, `--random-slope` seçenekleri); çıktı yazdırıcısı
+  `_print_glmm_result`
+- ✅ Menü `[8] 📈 Regresyon` yeni öğesi:
+  `[4] GLMM (Genelleştirilmiş Karışık Model)`
+
+Test kaydı: `tests/test_premium_glmm.py`; menü akışları
 `menu_smoke_test.py` üzerinden `tests/test_menu_flows.py`'de
 parametrize edilir.
 

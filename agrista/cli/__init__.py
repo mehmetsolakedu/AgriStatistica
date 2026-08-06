@@ -14,6 +14,8 @@ import click
 import pandas as pd
 import numpy as np
 
+from agrista.models import glmm as glmm_fit
+
 
 def _load_file(filepath: str, sheet: int = 0):
     """CSV veya Excel dosyasını AgristaData olarak yükler."""
@@ -628,7 +630,6 @@ def gee(filepath: str, yanit: str, degiskenler: str, grup: str,
 def glmm(filepath: str, yanit: str, sabitler: str, grup: str,
          aile: str, random_slope: str):
     """Genelleştirilmiş doğrusal karışık model (GLMM)."""
-    from agrista.models import glmm as glmm_fit
     df = _load_file(filepath).dataframe
     try:
         result = glmm_fit(df, response=yanit,
@@ -1085,6 +1086,7 @@ def _build_menu_structure():
             ("Multinomial lojistik regresyon", _menu_multinom),
             ("Ordinal lojistik regresyon (PLUM)", _menu_ordlogit),
             ("GEE (Genelleştirilmiş Tahmin Denklemleri)", _menu_gee),
+            ("GLMM (Genelleştirilmiş Karışık Model)", _menu_glmm),
         ]),
         ("🗂️ Sınıflandırma", [
             ("Ayrımsama analizi (Discriminant)", _menu_discriminant),
@@ -1767,6 +1769,25 @@ def _menu_gee():
                        covariates=[c.strip() for c in degiskenler.split(",")],
                        group_col=grup)
     _print_gee_result(result)
+
+
+def _menu_glmm():
+    path = _ask_file("Veri dosyası yolu (CSV/Excel)")
+    df = _load_file(path).dataframe
+    yanit = _ask_column(df, "Bağımlı değişken")
+    sabitler = _prompt_or_eof("Sabit etkiler (virgülle)")
+    if not sabitler:
+        raise click.exceptions.Abort()
+    grup = _ask_column(df, "Rastgele etki grup sütunu")
+    aile = _prompt_or_eof("Aile (gaussian/binomial/poisson)",
+                          default="gaussian")
+    try:
+        result = glmm_fit(df, response=yanit,
+                          fixed_effects=[c.strip() for c in sabitler.split(",")],
+                          groups_col=grup, family=aile)
+    except ValueError as e:
+        raise click.ClickException(str(e))
+    _print_glmm_result(result)
 
 
 def _menu_discriminant():
