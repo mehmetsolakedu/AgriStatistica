@@ -48,6 +48,10 @@ uygulama içi güncelleme denetimi. macOS/Windows kurulum paketleri
 GitHub Releases'ta yayınlanır (`Agrista-<sürüm>-macOS.dmg`,
 `Agrista-<sürüm>-Setup.exe`).
 
+**İndir:** [Agrista v0.4.0 Release](https://github.com/mehmetsolakedu/AgriStatistica/releases/latest)
+— macOS: `Agrista-0.4.0-macOS.dmg` (ad-hoc imzalı; ilk açılışta
+Sistem Ayarları → Gizlilik ve Güvenlik onayı gerekebilir).
+
 ## Kullanım
 
 ```python
