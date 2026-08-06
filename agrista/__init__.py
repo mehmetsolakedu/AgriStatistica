@@ -3,7 +3,7 @@ Agrista — Tarımsal İstatistik Yazılımı
 Agricultural Statistical Analysis Toolkit
 """
 
-__version__ = "0.3.0"
+__version__ = "0.4.0"
 __author__ = "Agrista Team"
 
 from agrista.data import AgristaData, load_csv, load_excel, load_json

@@ -33,6 +33,21 @@ Agrista, tarım verilerini toplamak, analiz etmek ve görselleştirmek için tas
 pip install -e .
 ```
 
+## Masaüstü Uygulaması
+
+Agrista, PySide6 tabanlı masaüstü uygulaması olarak da kullanılabilir:
+
+```bash
+pip install "agrista[gui]"
+agrista-gui
+```
+
+Uygulama: 21 kategorili menü, veri tablosu görünümü, 16 bağlı analiz
+(otomatik formlar), 12 grafik tipi (gömülü canvas, tema desteği),
+uygulama içi güncelleme denetimi. macOS/Windows kurulum paketleri
+GitHub Releases'ta yayınlanır (`Agrista-<sürüm>-macOS.dmg`,
+`Agrista-<sürüm>-Setup.exe`).
+
 ## Kullanım
 
 ```python
