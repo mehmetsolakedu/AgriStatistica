@@ -31,9 +31,9 @@ class TestMainWindow:
         kategori = [a.menu() for a in bar.actions()
                     if a.text() == "📊 Betimsel İstatistikler"][0]
         ogeler = kategori.actions()
-        assert len(ogeler) >= 1
-        assert all(not o.isEnabled() or "(planlanıyor)" in o.text()
-                   for o in ogeler)
+        kayitsiz = [o for o in ogeler if "(planlanıyor)" in o.text()]
+        assert len(kayitsiz) >= 1  # örn. Q-Q grafiği kayıtsız
+        assert all(not o.isEnabled() for o in kayitsiz)
 
     def test_veri_acma(self, pencere, qtbot, tmp_path):
         pencere.open_file(_csv(tmp_path))
@@ -49,3 +49,35 @@ class TestMainWindow:
         pencere.tema_uygula("koyu")
         assert "QMainWindow" in pencere.styleSheet()
         assert pencere._tema == "koyu"
+
+
+class TestAnalizAkisi:
+    def test_bagli_ogeler_etkin(self, pencere):
+        bar = pencere.menuBar()
+        kategori = [a.menu() for a in bar.actions()
+                    if a.text() == "📊 Betimsel İstatistikler"][0]
+        adlar = {o.text() for o in kategori.actions()}
+        assert "Betimsel özet tablosu" in adlar
+        bagli = [o for o in kategori.actions()
+                 if o.text() == "Betimsel özet tablosu"][0]
+        assert bagli.isEnabled()
+
+    def test_analiz_uc_tan_uca(self, pencere, qtbot, tmp_path, monkeypatch):
+        from agrista.gui.analysis_dialog import AnalysisDialog
+        from agrista.gui.registry import REGISTRY
+        pencere.open_file(_csv(tmp_path))
+        spec = next(s for s in REGISTRY if s.key == "betimsel")
+        monkeypatch.setattr(AnalysisDialog, "exec", lambda self: 1)
+        monkeypatch.setattr(AnalysisDialog, "degerler",
+                            lambda self: {"kolonlar": "x"})
+        pencere.analiz_calistir(spec)
+        assert "count" in pencere.sonuc_paneli.toPlainText()
+
+    def test_verisiz_analiz_uyarisi(self, pencere, qtbot, monkeypatch):
+        from PySide6.QtWidgets import QMessageBox
+        from agrista.gui.registry import REGISTRY
+        monkeypatch.setattr(QMessageBox, "warning",
+                            staticmethod(lambda *a, **k: None))
+        spec = REGISTRY[0]
+        pencere.analiz_calistir(spec)
+        assert pencere.sonuc_paneli.toPlainText() == ""

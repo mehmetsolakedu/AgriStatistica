@@ -6,11 +6,12 @@ from pathlib import Path
 
 import pandas as pd
 from PySide6.QtCore import Qt
-from PySide6.QtWidgets import (QFileDialog, QMainWindow, QMenu, QMessageBox,
-                               QSplitter, QTabWidget, QTableView,
-                               QTextEdit)
+from PySide6.QtWidgets import (QDialog, QFileDialog, QMainWindow, QMenu,
+                               QMessageBox, QSplitter, QTabWidget,
+                               QTableView, QTextEdit)
 
 from agrista.data import load_csv, load_excel
+from agrista.gui.analysis_dialog import AnalysisDialog
 from agrista.gui.data_model import DataFrameModel
 from agrista.gui.registry import REGISTRY, format_result
 from agrista.gui.theme import tema_qss
@@ -119,9 +120,19 @@ class MainWindow(QMainWindow):
 
     # -- analiz / tema / güncelleme ------------------------------------
     def analiz_calistir(self, spec):
-        """Kayıtlı analizi çalıştırır (diyalog Plan 2'de bağlanır)."""
-        self.sonuc_paneli.setPlainText(
-            f"{spec.label}: diyalog entegrasyonu bekleniyor")
+        """Kayıtlı analizi diyalogla çalıştırır, sonucu panelde gösterir."""
+        if self.df.empty:
+            QMessageBox.warning(self, "Veri yok",
+                                "Önce Dosya → Veri Aç ile veri yükleyin.")
+            return
+        dlg = AnalysisDialog(spec, self.df, self)
+        if dlg.exec() == QDialog.Accepted:
+            try:
+                sonuc = spec.run(self.df, dlg.degerler())
+            except ValueError as e:
+                QMessageBox.critical(self, "Analiz hatası", str(e))
+                return
+            self.sonuc_goster(spec.label, sonuc)
 
     def sonuc_goster(self, baslik: str, sonuc: dict):
         self.sonuc_paneli.setPlainText(
