@@ -1130,7 +1130,7 @@ def _print_banner():
     click.echo("")
     for line in _LOGO.splitlines():
         click.secho(line, fg="green", bold=True)
-    click.secho("      ── Tarımsal İstatistik Yazılımı · v0.1.0 ──",
+    click.secho("      ── Tarımsal İstatistik Yazılımı · v0.2.0 ──",
                 fg="yellow")
     click.echo("")
 
