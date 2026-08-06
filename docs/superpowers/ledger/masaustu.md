@@ -68,3 +68,15 @@ Yöntem: alt-ajan güdümlü, iki aşamalı inceleme (spec uyumu → kod kalites
 
 ## SONUÇ
 Tüm görevler complete. Masaüstü Dağıtım Wave 1 (v0.4.0) teslim edildi.
+
+## Dağıtım Günlüğü (yayın)
+- PR'lar #1, #2, #3 main'e birleştirildi; depo PUBLIC yapıldı.
+- v0.4.0 etiketi main'de; release elle açıldı: dist/Agrista-0.4.0-macOS.dmg
+  (yerel build, ad-hoc imzalı, hdiutil verify VALID, uygulama build'den
+  çalıştırılıp doğrulandı) + latest.json.
+- Güncelleme kanalı anonim kanıtlandı: releases/latest/download/latest.json
+  HTTP 200; `check_update('0.3.0')` → 0.4.0 algıladı; DMG HTTP 200.
+- AÇIK KALEM: Windows kurulumcusu (release.yml matrix) GitHub Actions
+  olay işleme hattı public geçişi sonrası yanıt vermiyor (release.yml
+  indekslenmedi, ~2 saat). Hat toparlanınca etiket/elle tetikleme ile
+  exe aynı release'e eklenecek.
