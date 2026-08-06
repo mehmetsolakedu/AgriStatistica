@@ -1,0 +1,8 @@
+[flake8]
+max-line-length = 100
+# E127/E131: görsel girinti hizalama stilleri
+# E402: CLI menü işleyicilerinde kasıtlı geç importlar
+# E501/W293: biçimlendirme gürültüsü (black uyumu öncelikli değil)
+# W503/E203: black ile çelişen eski stil kuralları
+extend-ignore = E127,E131,E402,E501,W293,W503,E203
+exclude = .venv,build,dist,agrista.egg-info,.pytest_cache

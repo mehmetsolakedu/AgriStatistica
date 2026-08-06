@@ -1,0 +1,22 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+
+# Sanal ortam
+.venv/
+
+# Test / kapsam çıktıları
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Demo grafik çıktıları
+agrista_plots/
+
+# Editör / OS
+.DS_Store
+.idea/
+.vscode/
