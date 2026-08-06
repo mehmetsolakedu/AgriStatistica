@@ -160,6 +160,160 @@ class AgristaPlotter:
         plt.tight_layout()
         return fig
 
+    def forest_plot(self, effects: list, ci_lower: list, ci_upper: list,
+                    labels: list,
+                    title: str = "Orman (Forest) Grafiği") -> plt.Figure:
+        """Orman grafiği — etki tahminleri ± güven aralıkları."""
+        diziler = (effects, ci_lower, ci_upper, labels)
+        if len(set(len(d) for d in diziler)) != 1 or len(effects) == 0:
+            raise ValueError("Tüm diziler aynı uzunlukta olmalı")
+        effects = np.asarray(effects, dtype=float)
+        lo = np.asarray(ci_lower, dtype=float)
+        hi = np.asarray(ci_upper, dtype=float)
+        poz = np.arange(len(effects))
+        self._ensure_fig()
+        fig, ax = plt.subplots(figsize=(10, max(4, 0.6 * len(effects) + 2)))
+        ax.errorbar(effects, poz, xerr=[effects - lo, hi - effects],
+                    fmt="o", color=self._palette[0], capsize=5,
+                    linewidth=2, markersize=7)
+        ax.axvline(0, color="red", linestyle="--", linewidth=1.5)
+        ax.set_yticks(poz)
+        ax.set_yticklabels([str(x) for x in labels])
+        ax.set_xlabel("Etki büyüklüğü")
+        ax.set_title(title, fontsize=14, fontweight="bold")
+        plt.tight_layout()
+        return fig
+
+    def bland_altman_plot(self, x, y,
+                          title: str = "Bland-Altman Grafiği") -> plt.Figure:
+        """Bland-Altman uyum grafiği — fark vs ortalama, ±1.96 SD."""
+        x_arr = np.asarray(x, dtype=float).flatten()
+        y_arr = np.asarray(y, dtype=float).flatten()
+        if len(x_arr) != len(y_arr) or len(x_arr) < 5:
+            raise ValueError("En az 5 eşleşmiş ölçüm gerekli")
+        fark = x_arr - y_arr
+        ort = (x_arr + y_arr) / 2
+        md = float(np.mean(fark))
+        sd = float(np.std(fark, ddof=1))
+        self._ensure_fig()
+        fig, ax = plt.subplots(figsize=(10, 6))
+        ax.scatter(ort, fark, color=self._palette[0], alpha=0.6,
+                   edgecolors="white", s=50)
+        for cizgi, etiket in ((md, f"Orta fark: {md:.2f}"),
+                              (md + 1.96 * sd, "+1.96 SD"),
+                              (md - 1.96 * sd, "-1.96 SD")):
+            ax.axhline(cizgi, color="red", linestyle="--",
+                       linewidth=1.5, label=etiket)
+        ax.set_xlabel("İki ölçümün ortalaması")
+        ax.set_ylabel("Fark (x − y)")
+        ax.set_title(title, fontsize=14, fontweight="bold")
+        ax.legend()
+        plt.tight_layout()
+        return fig
+
+    def roc_plot(self, actual, predicted,
+                 title: str = "ROC Eğrisi") -> plt.Figure:
+        """ROC eğrisi + AUC (analiz.roc_curve üzerine çizim)."""
+        from agrista.analysis import roc_curve
+        res = roc_curve(actual, predicted)
+        self._ensure_fig()
+        fig, ax = plt.subplots(figsize=(8, 8))
+        ax.plot(res["fpr"], res["tpr"], color=self._palette[0],
+                linewidth=2, label=f"AUC = {res['auc']:.3f}")
+        ax.plot([0, 1], [0, 1], "k--", linewidth=1, label="Şans doğrusu")
+        ax.set_xlabel("1 − Özgüllük (FPR)")
+        ax.set_ylabel("Duyarlılık (TPR)")
+        ax.set_title(f"{title} (AUC={res['auc']:.3f})",
+                     fontsize=14, fontweight="bold")
+        ax.legend()
+        plt.tight_layout()
+        return fig
+
+    def survival_plot(self, time, event, group=None,
+                      title: str = "Kaplan-Meier Sağkalım Eğrisi"
+                      ) -> plt.Figure:
+        """Kaplan-Meier basamak eğrisi (grupluysa bir eğri/grup)."""
+        from agrista.survival import kaplan_meier
+        self._ensure_fig()
+        fig, ax = plt.subplots(figsize=(10, 6))
+        if group is None:
+            km = kaplan_meier(time, event)
+            t = np.concatenate([[0.0], np.asarray(km["time"], dtype=float)])
+            s = np.concatenate([[1.0], np.asarray(km["survival"],
+                                                  dtype=float)])
+            ax.step(t, s, where="post", color=self._palette[0],
+                    linewidth=2, label="Tümü")
+        else:
+            t_arr = np.asarray(time)
+            e_arr = np.asarray(event)
+            g_arr = np.asarray(group)
+            for i, g in enumerate(sorted(np.unique(g_arr), key=str)):
+                maske = g_arr == g
+                km = kaplan_meier(t_arr[maske], e_arr[maske])
+                t = np.concatenate([[0.0],
+                                    np.asarray(km["time"], dtype=float)])
+                s = np.concatenate([[1.0], np.asarray(km["survival"],
+                                                      dtype=float)])
+                ax.step(t, s, where="post",
+                        color=self._palette[i % len(self._palette)],
+                        linewidth=2, label=str(g))
+        ax.set_xlabel("Zaman")
+        ax.set_ylabel("Sağkalım olasılığı S(t)")
+        ax.set_ylim(0, 1.05)
+        ax.set_title(title, fontsize=14, fontweight="bold")
+        ax.legend()
+        plt.tight_layout()
+        return fig
+
+    def control_chart(self, values, subgroup_size: int = 5,
+                      title: str = "Kontrol Grafiği (X̄)") -> plt.Figure:
+        """X̄ kontrol grafiği — alt grup ortalamaları ± 3σ limitleri."""
+        arr = np.asarray(values, dtype=float).flatten()
+        arr = arr[~np.isnan(arr)]
+        if subgroup_size < 2 or len(arr) < 2 * subgroup_size:
+            raise ValueError("En az 2 alt grup dolusu veri gerekli")
+        n_alt = len(arr) // subgroup_size
+        alt = arr[:n_alt * subgroup_size].reshape(n_alt, subgroup_size)
+        ortalamalar = alt.mean(axis=1)
+        merkez = float(ortalamalar.mean())
+        sigma = float(ortalamalar.std(ddof=1))
+        self._ensure_fig()
+        fig, ax = plt.subplots(figsize=(11, 6))
+        x = np.arange(n_alt)
+        ihlal = (np.abs(ortalamalar - merkez) > 3 * sigma)
+        ax.plot(x, ortalamalar, "o-", color=self._palette[0], linewidth=2)
+        ax.scatter(x[ihlal], ortalamalar[ihlal], color="red", s=80,
+                   zorder=5, label="Limit ihlali")
+        for cizgi, etiket in ((merkez, "Merkez"),
+                              (merkez + 3 * sigma, "+3σ"),
+                              (merkez - 3 * sigma, "-3σ")):
+            ax.axhline(cizgi, color="red" if etiket != "Merkez" else "gray",
+                       linestyle="--", linewidth=1.2, label=etiket)
+        ax.set_xlabel("Alt grup")
+        ax.set_ylabel("Ortalama")
+        ax.set_title(title, fontsize=14, fontweight="bold")
+        ax.legend()
+        plt.tight_layout()
+        return fig
+
+    def residual_plot(self, fitted, residuals,
+                      title: str = "Artık Grafiği") -> plt.Figure:
+        """Artık diyagnostiği — uydurulan değerlere karşı artıkler."""
+        f = np.asarray(fitted, dtype=float).flatten()
+        r = np.asarray(residuals, dtype=float).flatten()
+        if len(f) != len(r) or len(f) < 5:
+            raise ValueError("En az 5 eşleşmiş artık gerekli")
+        self._ensure_fig()
+        fig, ax = plt.subplots(figsize=(10, 6))
+        ax.scatter(f, r, color=self._palette[0], alpha=0.6,
+                   edgecolors="white", s=50)
+        ax.axhline(0, color="red", linestyle="--", linewidth=1.5)
+        ax.set_xlabel("Uydurulan değerler")
+        ax.set_ylabel("Artıklar")
+        ax.set_title(title, fontsize=14, fontweight="bold")
+        plt.tight_layout()
+        return fig
+
     def histogram(
         self,
         data: pd.Series | np.ndarray,

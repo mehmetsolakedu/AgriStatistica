@@ -85,3 +85,63 @@ class TestDagilimGrafikleri:
         df["grup"] = "A"
         with pytest.raises(ValueError):
             plotter.raincloud_plot(df, y_col="verim", group_col="grup")
+
+
+class TestTaniVeModelGrafikleri:
+    def test_forest(self, plotter):
+        fig = plotter.forest_plot(effects=[0.5, -0.2, 1.1],
+                                  ci_lower=[0.1, -0.6, 0.4],
+                                  ci_upper=[0.9, 0.2, 1.8],
+                                  labels=["A", "B", "C"])
+        assert len(fig.axes[0].lines) >= 1  # sıfır çizgisi
+
+    def test_forest_uzunluk_hatasi(self, plotter):
+        with pytest.raises(ValueError):
+            plotter.forest_plot(effects=[0.5], ci_lower=[0.1, 0.2],
+                                ci_upper=[0.9], labels=["A", "B"])
+
+    def test_bland_altman(self, plotter):
+        rng = np.random.default_rng(4)
+        x = rng.normal(50, 5, 40)
+        fig = plotter.bland_altman_plot(x, x + rng.normal(0, 2, 40))
+        # orta çizgi + 2 limit = 3 yatay çizgi
+        assert len(fig.axes[0].lines) >= 3
+
+    def test_roc(self, plotter):
+        rng = np.random.default_rng(6)
+        gercek = rng.integers(0, 2, 100)
+        skor = gercek * 0.6 + rng.normal(0, 0.4, 100)
+        fig = plotter.roc_plot(gercek, skor)
+        assert "AUC" in fig.axes[0].get_title()
+
+    def test_survival(self, plotter):
+        rng = np.random.default_rng(7)
+        zaman = rng.exponential(10, 50)
+        olay = rng.integers(0, 2, 50)
+        fig = plotter.survival_plot(zaman, olay)
+        assert "Sağkalım" in fig.axes[0].get_title()
+
+    def test_survival_gruplu(self, plotter):
+        rng = np.random.default_rng(8)
+        zaman = rng.exponential(10, 60)
+        olay = rng.integers(0, 2, 60)
+        grup = rng.choice(["kontrol", "ilaç"], 60)
+        fig = plotter.survival_plot(zaman, olay, group=grup)
+        assert len(fig.axes[0].lines) >= 2
+
+    def test_control_chart(self, plotter):
+        rng = np.random.default_rng(9)
+        vals = rng.normal(100, 2, 50)
+        vals[22] = 115.0  # ihlal
+        fig = plotter.control_chart(vals, subgroup_size=5)
+        assert len(fig.axes[0].lines) >= 3  # merkez + 2 limit
+
+    def test_residual(self, plotter):
+        rng = np.random.default_rng(10)
+        fitted = rng.normal(0, 1, 60)
+        fig = plotter.residual_plot(fitted, rng.normal(0, 0.3, 60))
+        assert len(fig.axes[0].lines) >= 1
+
+    def test_bland_altman_az_veri_hatasi(self, plotter):
+        with pytest.raises(ValueError):
+            plotter.bland_altman_plot([1.0, 2.0], [1.1, 2.1])
