@@ -1,5 +1,7 @@
 name: Release
 
+# Etiket (v*) veya elle tetikleme ile macOS/Windows kurulum paketlerini
+# üretir, GitHub Release'e yükler ve latest.json (güncelleme kanalı) üretir.
 on:
   push:
     tags: ["v*"]
