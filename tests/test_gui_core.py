@@ -53,3 +53,26 @@ class TestTema:
         assert tema_qss("açık") != tema_qss("koyu")
         with pytest.raises(ValueError):
             tema_qss("olmayan")
+
+
+class TestKayitVeFormat:
+    def test_kayit_baslangicta_bos(self):
+        from agrista.gui.registry import REGISTRY
+        assert isinstance(REGISTRY, list)
+
+    def test_param_ve_spec(self):
+        from agrista.gui.registry import AnalysisSpec, Param
+        p = Param(name="kolon", label="Kolon", kind="column")
+        s = AnalysisSpec(key="k", menu_category="m", label="l",
+                         run=lambda df, p: {}, params=[p])
+        assert s.params[0].kind == "column"
+
+    def test_format_result_dict(self):
+        from agrista.gui.registry import format_result
+        metin = format_result({"a": 1.5, "b": {"c": "x"}})
+        assert "a: 1.5" in metin and "c: x" in metin
+
+    def test_format_result_liste_ve_skaler(self):
+        from agrista.gui.registry import format_result
+        assert "1" in format_result([1, 2])
+        assert format_result(3.25) == "3.25"
