@@ -39,6 +39,15 @@ class AgristaPlotter:
         if eksik:
             raise ValueError(f"Sütun bulunamadı: {eksik}")
 
+    def _palet(self, hue_kolon=None, data=None):
+        """Hue düzey sayısına kırpılmış palet (seaborn uyarılarını önler)."""
+        if hue_kolon is None or data is None:
+            return None
+        n = int(data[hue_kolon].nunique())
+        if len(self._palette) > n:
+            return self._palette[:n]
+        return self._palette
+
     def violin_plot(self, data: pd.DataFrame, x_col: str, y_col: str,
                     hue: str = None,
                     title: str = "Violin Grafiği") -> plt.Figure:
@@ -47,7 +56,7 @@ class AgristaPlotter:
         self._ensure_fig()
         fig, ax = plt.subplots(figsize=(10, 6))
         sns.violinplot(data=data, x=x_col, y=y_col, hue=hue, inner="box",
-                       palette=self._palette, ax=ax)
+                       palette=self._palet(hue, data), ax=ax)
         ax.set_title(title, fontsize=14, fontweight="bold")
         plt.tight_layout()
         return fig
@@ -130,7 +139,7 @@ class AgristaPlotter:
         if sayisal.shape[1] != len(cols):
             raise ValueError("Pair grid sütunları sayısal olmalı")
         g = sns.pairplot(data, vars=list(cols), hue=hue,
-                         palette=self._palette)
+                         palette=self._palet(hue, data))
         g.figure.suptitle(title, y=1.02, fontsize=14, fontweight="bold")
         return g
 
@@ -142,7 +151,7 @@ class AgristaPlotter:
         self._ensure_fig()
         fig, ax = plt.subplots(figsize=(10, 6))
         sns.boxplot(data=data, x=x_col, y=y_col, hue=hue_col,
-                    palette=self._palette, ax=ax)
+                    palette=self._palet(hue_col, data), ax=ax)
         ax.set_title(title, fontsize=14, fontweight="bold")
         plt.tight_layout()
         return fig
@@ -155,7 +164,7 @@ class AgristaPlotter:
         self._ensure_fig()
         fig, ax = plt.subplots(figsize=(10, 6))
         sns.stripplot(data=data, x=x_col, y=y_col, jitter=jitter,
-                      palette=self._palette, ax=ax, alpha=0.7)
+                      color=self._palette[0], ax=ax, alpha=0.7)
         ax.set_title(title, fontsize=14, fontweight="bold")
         plt.tight_layout()
         return fig
