@@ -37,15 +37,20 @@ viz = [
     "plotly>=5.15.0",
     "folium>=0.14.0",
 ]
+gui = [
+    "PySide6>=6.6",
+]
 dev = [
     "pytest>=7.4.0",
     "pytest-cov>=4.1.0",
+    "pytest-qt>=4.2",
     "black>=23.0.0",
     "flake8>=6.0.0",
 ]
 
 [project.scripts]
 agrista = "agrista.cli.main:main"
+agrista-gui = "agrista.gui.main:main"
 
 [tool.setuptools.packages.find]
 include = ["agrista*"]
