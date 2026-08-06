@@ -80,3 +80,19 @@ Tüm görevler complete. Masaüstü Dağıtım Wave 1 (v0.4.0) teslim edildi.
   olay işleme hattı public geçişi sonrası yanıt vermiyor (release.yml
   indekslenmedi, ~2 saat). Hat toparlanınca etiket/elle tetikleme ile
   exe aynı release'e eklenecek.
+
+## DAĞITIM TAMAMLANDI (final)
+- Actions hattı toparlandı; CI hataları kök nedenleriyle giderildi:
+  pytest-qt dev→gui ekstrasi, importorskip korumaları, libegl1,
+  build betikleri .venv varsayımı, makensis yol bulma, NSIS DIST_DIR
+  mutlak yol, Section "Uninstall", notarizasyon sırası, pandas 3
+  StringDtype uyumu (is_numeric_dtype).
+- Release koşusu 31128846583 TAM YEŞİL: macOS + Windows + release job.
+- Release v0.4.0 varlıkları: Agrista-0.4.0-macOS.dmg (116 MB),
+  Agrista-0.4.0-Setup.exe (139 MB), latest.json (424 bayt, doğru not).
+- Anonim kanal: releases/latest/download/latest.json HTTP 200;
+  check_update('0.3.0') → 0.4.0 algılıyor, her iki platform URL'si
+  HTTP 200. DMG hdiutil verify VALID; .app build'den çalıştırıldı.
+- CI main'de TAM YEŞİL (test 3.9 + test 3.11 + gui), run 31129416759.
+- SONUÇ: macOS/Windows kurulum paketleri yayında, güncelleme kanalı
+  çalışıyor; dağıtım hedefi tamamlandı.
