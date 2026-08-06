@@ -487,3 +487,37 @@ class TestGeeCli:
                                           "--grup", "grup",
                                           "--aile", "negbin"])
         assert result.exit_code != 0
+
+
+class TestGlmmCli:
+    """GLMM CLI komutu testleri: gaussian REML + binomial/poisson PQL."""
+
+    @pytest.fixture
+    def runner(self):
+        return CliRunner()
+
+    @pytest.fixture
+    def _glmm_csv(self, tmp_path):
+        rng = np.random.default_rng(2)
+        rows = []
+        for g in range(15):
+            b = rng.normal(0, 1.0)
+            for _ in range(8):
+                x = rng.normal(0, 1)
+                rows.append({"grup": g, "x": x,
+                             "y": 2 + x + b + rng.normal(0, 0.5)})
+        csv = tmp_path / "glmm.csv"
+        pd.DataFrame(rows).to_csv(csv, index=False)
+        return str(csv)
+
+    def test_cli_glmm(self, runner, _glmm_csv):
+        result = runner.invoke(cli_main, ["glmm", _glmm_csv, "--yanit", "y",
+                                          "--sabitler", "x", "--grup", "grup"])
+        assert result.exit_code == 0
+        assert "GLMM" in result.output
+
+    def test_cli_glmm_binomial_hatali_yanit(self, runner, _glmm_csv):
+        result = runner.invoke(cli_main, ["glmm", _glmm_csv, "--yanit", "y",
+                                          "--sabitler", "x", "--grup", "grup",
+                                          "--aile", "binomial"])
+        assert result.exit_code != 0

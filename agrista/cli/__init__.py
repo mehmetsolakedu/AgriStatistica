@@ -303,6 +303,24 @@ def _print_gee_result(result: dict):
                    f"{c['p_value']:8.4f}")
 
 
+def _print_glmm_result(result: dict):
+    click.echo(f"\n🧬 {result['model']} — aile: {result['family']}, "
+               f"yöntem: {result['method']}")
+    click.echo(f"   {result['n_groups']} grup, {result['n_obs']} gözlem, "
+               f"yakınsama: {'evet' if result['converged'] else 'hayır'}"
+               + (f" ({result['n_iterations']} yineleme)"
+                  if result["method"] == "PQL" else ""))
+    click.echo("   Sabit etki      Katsayı     SE       z       p")
+    for ad, c in result["fixed_effects"].items():
+        click.echo(f"   {ad[:14]:<14} {c['coefficient']:9.4f} "
+                   f"{c['std_err']:8.4f} {c['z_value']:7.3f} "
+                   f"{c['p_value']:8.4f}")
+    ri = result["random_effects_variance"]["random_intercept"]
+    click.echo(f"   Rastgele kesim varyansı = {ri:.4f}")
+    if result["aic"] is not None:
+        click.echo(f"   AIC = {result['aic']:.2f}")
+
+
 # ---------------------------------------------------------------------------
 # Komut grubu ve alt komutlar
 # ---------------------------------------------------------------------------
@@ -597,6 +615,29 @@ def gee(filepath: str, yanit: str, degiskenler: str, grup: str,
     except ValueError as e:
         raise click.ClickException(str(e))
     _print_gee_result(result)
+
+
+@main.command("glmm")
+@click.argument("filepath")
+@click.option("--yanit", required=True, help="Bağımlı değişken sütunu")
+@click.option("--sabitler", required=True, help="Virgülle ayrılmış sabit etkiler")
+@click.option("--grup", required=True, help="Rastgele etki grup sütunu")
+@click.option("--aile", default="gaussian",
+              type=click.Choice(["gaussian", "binomial", "poisson"]))
+@click.option("--random-slope", default=None, help="Rastgele eğim değişkeni")
+def glmm(filepath: str, yanit: str, sabitler: str, grup: str,
+         aile: str, random_slope: str):
+    """Genelleştirilmiş doğrusal karışık model (GLMM)."""
+    from agrista.models import glmm as glmm_fit
+    df = _load_file(filepath).dataframe
+    try:
+        result = glmm_fit(df, response=yanit,
+                          fixed_effects=[c.strip() for c in sabitler.split(",")],
+                          groups_col=grup, family=aile,
+                          random_slope=random_slope)
+    except ValueError as e:
+        raise click.ClickException(str(e))
+    _print_glmm_result(result)
 
 
 @main.command()
