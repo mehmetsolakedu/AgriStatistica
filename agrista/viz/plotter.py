@@ -314,6 +314,107 @@ class AgristaPlotter:
         plt.tight_layout()
         return fig
 
+    def hexbin_plot(self, x, y, gridsize: int = 30,
+                    title: str = "Hexbin (2B Yoğunluk)") -> plt.Figure:
+        """Hexbin grafiği — büyük veri için 2B yoğunluk."""
+        x_arr = np.asarray(x, dtype=float).flatten()
+        y_arr = np.asarray(y, dtype=float).flatten()
+        maske = ~(np.isnan(x_arr) | np.isnan(y_arr))
+        x_arr, y_arr = x_arr[maske], y_arr[maske]
+        if len(x_arr) < 10:
+            raise ValueError("Hexbin için en az 10 nokta gerekli")
+        self._ensure_fig()
+        fig, ax = plt.subplots(figsize=(10, 6))
+        hb = ax.hexbin(x_arr, y_arr, gridsize=gridsize, cmap="viridis",
+                       mincnt=1)
+        fig.colorbar(hb, ax=ax, label="Yoğunluk")
+        ax.set_title(title, fontsize=14, fontweight="bold")
+        plt.tight_layout()
+        return fig
+
+    def stacked_area(self, labels: list, series_dict: dict,
+                     title: str = "Yığılmış Alan Grafiği") -> plt.Figure:
+        """Yığılmış alan grafiği — bileşenlerin zamana göre payı."""
+        if len(labels) == 0 or len(series_dict) == 0:
+            raise ValueError("Etiket ve en az bir seri gerekli")
+        for ad, seri in series_dict.items():
+            if len(seri) != len(labels):
+                raise ValueError(f"'{ad}' serisi etiket uzunluğunda değil")
+        self._ensure_fig()
+        fig, ax = plt.subplots(figsize=(11, 6))
+        ax.stackplot(range(len(labels)), *series_dict.values(),
+                     labels=list(series_dict.keys()),
+                     colors=self._palette, alpha=0.8)
+        ax.set_xticks(range(len(labels)))
+        ax.set_xticklabels([str(x) for x in labels])
+        ax.set_title(title, fontsize=14, fontweight="bold")
+        ax.legend(loc="upper left")
+        plt.tight_layout()
+        return fig
+
+    def growth_curve_plot(self, time, observed, model: str = "logistic",
+                          title: str = None) -> plt.Figure:
+        """Büyüme eğrisi — gözlemler + uydurulan model.
+
+        Desteklenen modeller: logistic, monomolecular.
+        """
+        from agrista.models import GrowthModel
+        t = np.asarray(time, dtype=float).flatten()
+        y = np.asarray(observed, dtype=float).flatten()
+        maske = ~(np.isnan(t) | np.isnan(y))
+        t, y = t[maske], y[maske]
+        if len(t) < 4:
+            raise ValueError("Büyüme eğrisi için en az 4 nokta gerekli")
+        gm = GrowthModel(model_type=model)
+        if model == "logistic":
+            gm.fit_logistic(t, y)
+            fonk = gm.logistic
+            args = (gm.params["K"], gm.params["r"], gm.params["t0"])
+            ad = "Lojistik"
+        elif model == "monomolecular":
+            gm.fit_monomolecular(t, y)
+            fonk = gm.monomolecular
+            p = gm.params
+            args = (p["A"], p["k"], p.get("t0", 0.0))
+            ad = "Monomoleküler"
+        else:
+            raise ValueError(f"Desteklenmeyen model: {model}")
+        self._ensure_fig()
+        fig, ax = plt.subplots(figsize=(10, 6))
+        ax.scatter(t, y, color=self._palette[0], alpha=0.7,
+                   label="Gözlem")
+        t_cek = np.linspace(t.min(), t.max(), 200)
+        ax.plot(t_cek, fonk(t_cek, *args), color="red", linewidth=2,
+                label=f"{ad} uydurma")
+        ax.set_xlabel("Zaman")
+        ax.set_ylabel("Ölçüm")
+        ax.set_title(title or f"Büyüme Eğrisi ({ad})",
+                     fontsize=14, fontweight="bold")
+        ax.legend()
+        plt.tight_layout()
+        return fig
+
+    def slope_plot(self, before, after, labels: list = None,
+                   title: str = "Eğim (Slope) Grafiği") -> plt.Figure:
+        """Eğim grafiği — eşleşmiş önce/sonra değişimleri."""
+        b = np.asarray(before, dtype=float).flatten()
+        a = np.asarray(after, dtype=float).flatten()
+        if len(b) != len(a) or len(b) < 2:
+            raise ValueError("before/after eşit ve ≥2 uzunlukta olmalı")
+        etiketler = labels or [str(i + 1) for i in range(len(b))]
+        self._ensure_fig()
+        fig, ax = plt.subplots(figsize=(9, 6))
+        for i in range(len(b)):
+            ax.plot([0, 1], [b[i], a[i]], "o-",
+                    color=self._palette[i % len(self._palette)],
+                    linewidth=1.8, label=str(etiketler[i]))
+        ax.set_xticks([0, 1])
+        ax.set_xticklabels(["Önce", "Sonra"])
+        ax.set_title(title, fontsize=14, fontweight="bold")
+        ax.legend(bbox_to_anchor=(1.02, 1), loc="upper left")
+        plt.tight_layout()
+        return fig
+
     def histogram(
         self,
         data: pd.Series | np.ndarray,

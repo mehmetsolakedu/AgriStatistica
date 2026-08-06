@@ -145,3 +145,40 @@ class TestTaniVeModelGrafikleri:
     def test_bland_altman_az_veri_hatasi(self, plotter):
         with pytest.raises(ValueError):
             plotter.bland_altman_plot([1.0, 2.0], [1.1, 2.1])
+
+
+class TestDigerGrafikler:
+    def test_hexbin(self, plotter):
+        rng = np.random.default_rng(11)
+        fig = plotter.hexbin_plot(rng.normal(size=300),
+                                  rng.normal(size=300))
+        assert fig.axes[0].get_title() == "Hexbin (2B Yoğunluk)"
+
+    def test_stacked_area(self, plotter):
+        fig = plotter.stacked_area(
+            labels=[2020, 2021, 2022],
+            series_dict={"buğday": [10.0, 12.0, 11.0],
+                         "arpa": [5.0, 6.0, 7.0]})
+        assert len(fig.axes[0].collections) >= 2
+
+    def test_stacked_area_bos_hatasi(self, plotter):
+        with pytest.raises(ValueError):
+            plotter.stacked_area(labels=[], series_dict={})
+
+    def test_growth_curve(self, plotter):
+        t = np.linspace(1, 30, 20)
+        y = 100 / (1 + np.exp(-0.25 * (t - 15))) + np.random.default_rng(
+            12).normal(0, 1.5, 20)
+        fig = plotter.growth_curve_plot(t, y, model="logistic")
+        assert "Lojistik" in fig.axes[0].get_title() or \
+               "büyüme" in fig.axes[0].get_title().lower()
+
+    def test_slope(self, plotter):
+        fig = plotter.slope_plot(before=[1.0, 2.0, 3.0],
+                                 after=[2.0, 1.5, 4.0],
+                                 labels=["a", "b", "c"])
+        assert len(fig.axes[0].lines) >= 3
+
+    def test_slope_uzunluk_hatasi(self, plotter):
+        with pytest.raises(ValueError):
+            plotter.slope_plot(before=[1.0, 2.0], after=[2.0])
