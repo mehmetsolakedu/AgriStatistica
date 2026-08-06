@@ -30,6 +30,8 @@ if (-not $makensis) {
     }
 }
 Write-Host "NSIS: $makensis"
+Write-Host "dist içeriği:"
+Get-ChildItem dist | ForEach-Object { Write-Host $_.Name }
 
 & $makensis packaging\agrista.nsi
 Move-Item dist\Agrista-Setup.exe "dist\Agrista-$surum-Setup.exe" -Force
