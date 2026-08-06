@@ -6,7 +6,8 @@ from plotly import graph_objects as go
 
 from agrista.viz.interactive import (
     interactive_scatter, interactive_line, interactive_bar,
-    interactive_heatmap, interactive_box, interactive_histogram)
+    interactive_heatmap, interactive_box, interactive_histogram,
+    build_dashboard)
 
 
 def _veri(seed=2, n=80):
@@ -52,3 +53,23 @@ class TestEtkilesimliGrafikler:
     def test_eksik_sutun_hatasi(self):
         with pytest.raises(ValueError):
             interactive_scatter(_veri(), x="yok", y="verim")
+
+
+class TestDashboard:
+    def test_dashboard_uretir(self, tmp_path):
+        hedef = tmp_path / "panel.html"
+        res = build_dashboard(_veri(), str(hedef))
+        assert hedef.exists() and hedef.stat().st_size > 1000
+        assert res["path"] == str(hedef)
+        assert res["n_rows"] == 80
+        assert res["n_figures"] >= 3
+
+    def test_dashboard_hedefli(self, tmp_path):
+        hedef = tmp_path / "panel2.html"
+        res = build_dashboard(_veri(), str(hedef), target="verim")
+        assert hedef.exists()
+        assert res["n_figures"] >= 4
+
+    def test_dashboard_bos_df_hatasi(self, tmp_path):
+        with pytest.raises(ValueError):
+            build_dashboard(pd.DataFrame(), str(tmp_path / "x.html"))

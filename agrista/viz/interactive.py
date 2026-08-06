@@ -8,6 +8,7 @@ import numpy as np
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
+from plotly.subplots import make_subplots
 
 RENKLER = ["#2E86AB", "#A23B72", "#F18F01", "#C73E1D", "#44BBA4",
            "#3B1F2B"]
@@ -81,3 +82,63 @@ def interactive_histogram(df: pd.DataFrame, column: str) -> go.Figure:
                        template="plotly_white")
     fig.update_layout(title=f"{column} Dağılımı")
     return fig
+
+
+def build_dashboard(df: pd.DataFrame, output_path: str,
+                    target: str = None,
+                    title: str = "Agrista Keşif Paneli") -> dict:
+    """Tek HTML keşif paneli: KPI kartları + histogramlar + korelasyon."""
+    if df.empty:
+        raise ValueError("Dashboard için boş olmayan veri gerekli")
+    sayisal = df.select_dtypes(include=[np.number])
+    sayisal_kolonlar = list(sayisal.columns)[:6]
+    if not sayisal_kolonlar:
+        raise ValueError("Dashboard için en az 1 sayısal sütun gerekli")
+
+    n_satir, n_sutun = df.shape
+    eksik_oran = float(df.isna().sum().sum() / max(n_satir * n_sutun, 1))
+
+    n_hist = len(sayisal_kolonlar)
+    fig = make_subplots(rows=2, cols=max(n_hist, 2),
+                        specs=[[{"type": "xy"}] * max(n_hist, 2),
+                               [{"type": "xy"}, {"type": "table"}]
+                               + [None] * (max(n_hist, 2) - 2)],
+                        subplot_titles=tuple(sayisal_kolonlar)
+                        + ("Korelasyon", "KPI Özet"),
+                        vertical_spacing=0.18, horizontal_spacing=0.08)
+    n_figures = 0
+    for i, kol in enumerate(sayisal_kolonlar):
+        fig.add_trace(go.Histogram(x=df[kol].dropna(), name=kol,
+                                   marker_color=RENKLER[i % len(RENKLER)],
+                                   showlegend=False),
+                      row=1, col=i + 1)
+        n_figures += 1
+
+    if len(sayisal_kolonlar) >= 2:
+        corr = sayisal[sayisal_kolonlar].corr()
+        fig.add_trace(go.Heatmap(z=corr.values, x=sayisal_kolonlar,
+                                 y=sayisal_kolonlar, colorscale="RdBu",
+                                 zmin=-1, zmax=1, showscale=True),
+                      row=2, col=1)
+        n_figures += 1
+
+    kpi_metin = (f"Satır: {n_satir}<br>Sütun: {n_sutun}<br>"
+                 f"Eksik oranı: {eksik_oran:.2%}")
+    fig.add_trace(go.Table(header=dict(values=["Özet"]),
+                           cells=dict(values=[[kpi_metin]])),
+                  row=2, col=2)
+    n_figures += 1
+
+    if target is not None:
+        if target not in df.columns:
+            raise ValueError(f"Hedef sütun bulunamadı: {target}")
+        kategori = df.select_dtypes(exclude=[np.number]).columns
+        if len(kategori) > 0:
+            fig = interactive_box(df, x=str(kategori[0]), y=target)
+            n_figures += 1
+
+    fig.update_layout(title_text=title, height=760,
+                      template="plotly_white")
+    fig.write_html(output_path, include_plotlyjs="cdn")
+    return {"path": output_path, "n_figures": int(n_figures),
+            "n_rows": int(n_satir)}
