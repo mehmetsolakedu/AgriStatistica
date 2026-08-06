@@ -49,6 +49,13 @@ def mixed_model(
     cov_re = np.atleast_2d(np.asarray(fitted.cov_re))
     random_effects_variance["random_intercept"] = float(cov_re[0, 0])
 
+    # statsmodels 0.14.x REML uydurmalarında fitted.aic NaN döndürür;
+    # gerekirse -2(llf - df) formülüyle hesaplanır.
+    aic_val = float(fitted.aic)
+    if not np.isfinite(aic_val):
+        df = fitted.params.size + 1
+        aic_val = float(-2 * (fitted.llf - df))
+
     return {
         "converged": bool(fitted.converged),
         "fixed_effects": {
@@ -58,7 +65,7 @@ def mixed_model(
         },
         "random_effects_variance": random_effects_variance,
         "residual_variance": float(fitted.scale),
-        "aic": float(fitted.aic),
+        "aic": aic_val,
         "bic": float(fitted.bic),
         "n_obs": int(fitted.nobs),
         "n_groups": int(work[groups_col].nunique()),
