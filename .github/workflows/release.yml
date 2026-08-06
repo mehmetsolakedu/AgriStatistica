@@ -62,13 +62,19 @@ jobs:
       - name: Build latest.json
         run: |
           SURUM=${GITHUB_REF_NAME#v}
-          TABAN="https://github.com/${{ github.repository }}/releases/download/${GITHUB_REF_NAME}"
+          if ! echo "$SURUM" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$'; then
+            SURUM=$(python3 -c "import re; print(re.search(r'version = \"(.+)\"', open('pyproject.toml').read()).group(1))")
+          fi
+          TABAN="https://github.com/${{ github.repository }}/releases/download/v${SURUM}"
           DMG=$(ls release_assets | grep '\.dmg$' | head -1)
           EXE=$(ls release_assets | grep '\.exe$' | head -1)
+          test -n "$DMG" && test -n "$EXE"
+          echo "SURUM=$SURUM" >> "$GITHUB_ENV"
           python packaging/make_latest_json.py \
             --version "$SURUM" --notes "${GITHUB_REF_NAME} sürümü" \
             --macos-url "$TABAN/$DMG" --windows-url "$TABAN/$EXE" \
             --out release_assets/latest.json
       - uses: softprops/action-gh-release@v2
         with:
+          tag_name: v${{ env.SURUM }}
           files: release_assets/*
