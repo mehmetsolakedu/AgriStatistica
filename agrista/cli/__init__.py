@@ -263,6 +263,32 @@ def _print_correspondence_result(result: dict):
     click.echo(f"\n   Sonuç: {sig}")
 
 
+def _print_glm_result(result: dict):
+    click.echo(f"\n📊 {result['model']}")
+    if result["model"] == "GLM Univariate":
+        click.echo(f"   R² = {result['r_squared']:.4f}  (n={result['n_obs']})")
+        click.echo("   Kaynak                SS        df    F        p")
+        for r in result["anova_table"]:
+            f_txt = f"{r['f_value']:8.3f}" if r["f_value"] is not None else "     -"
+            p_txt = f"{r['p_value']:.4f}" if r["p_value"] is not None else "-"
+            click.echo(f"   {r['source'][:20]:<20} {r['ss']:9.3f} {r['df']:4d} {f_txt} {p_txt:>8}")
+        for ad, eta in result["effect_sizes"].items():
+            click.echo(f"   Kısmi η² [{ad[:24]}] = {eta:.3f}")
+        if result["posthoc"]:
+            _print_tukey_result(result["posthoc"])
+    else:
+        w = result["within_effect"]
+        click.echo(f"   Within F({w['df1']:.0f},{w['df2']:.0f}) = "
+                   f"{w['f_value']:.3f}, p = {w['p_value']:.4f}")
+        m = result["mauchly"]
+        click.echo(f"   Mauchly W = {m['w']:.3f}, χ² = {m['chi2']:.2f}, "
+                   f"p = {m['p_value']:.4f}")
+        for ad in ("greenhouse_geisser", "huynh_feldt"):
+            c = result["corrected"][ad]
+            click.echo(f"   {ad}: ε = {result['epsilon'][ad]:.3f}, "
+                       f"p = {c['p_value']:.4f}")
+
+
 # ---------------------------------------------------------------------------
 # Komut grubu ve alt komutlar
 # ---------------------------------------------------------------------------
@@ -499,6 +525,39 @@ def ordlogit(filepath: str, yanit: str, degiskenler: str):
         _print_ologit_result(ordinal_logistic_regression(df, yanit, predictors))
     except Exception as e:
         click.echo(f"❌ Hata: {e}")
+
+
+@main.command("glm")
+@click.argument("filepath")
+@click.option("--yanit", required=True, help="Bağımlı değişken sütunu")
+@click.option("--faktorler", required=True, help="Virgülle ayrılmış faktörler")
+@click.option("--kovaryeteler", default=None, help="Virgülle ayrılmış kovaryeteler")
+@click.option("--tip", default="3", type=click.Choice(["1", "2", "3"]), help="SS tipi")
+@click.option("--posthoc", default="tukey", type=click.Choice(["tukey", "duncan", "yok"]))
+@click.option("--within", default=None, help="Tekrarlı ölçüm sütunları (virgülle)")
+@click.option("--denek", default=None, help="Denek sütunu (--within ile)")
+def glm(filepath: str, yanit: str, faktorler: str, kovaryeteler: str,
+        tip: str, posthoc: str, within: str, denek: str):
+    """Genel Doğrusal Model (tek değişkenli / tekrarlı ölçüm)."""
+    from agrista.analysis import glm_univariate, glm_repeated_measures
+    df = _load_file(filepath).dataframe
+    try:
+        if within:
+            if not denek:
+                raise click.UsageError("--within ile --denek zorunludur")
+            result = glm_repeated_measures(
+                df, response_cols=[c.strip() for c in within.split(",")],
+                subject_col=denek)
+        else:
+            kov = [c.strip() for c in kovaryeteler.split(",")] if kovaryeteler else None
+            result = glm_univariate(
+                df, response=yanit,
+                between_factors=[f.strip() for f in faktorler.split(",")],
+                covariates=kov, ss_type=int(tip),
+                posthoc=None if posthoc == "yok" else posthoc)
+    except ValueError as e:
+        raise click.ClickException(str(e))
+    _print_glm_result(result)
 
 
 @main.command()

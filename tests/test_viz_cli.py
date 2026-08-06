@@ -412,3 +412,46 @@ class TestCliWave3:
                                           "--yanit", "kalite",
                                           "--degiskenler", "yok"])
         assert "Hata" in result.output
+
+
+class TestGlmCli:
+    """GLM CLI komutu testleri: tek değişkenli ve tekrarlı ölçüm."""
+
+    @pytest.fixture
+    def runner(self):
+        return CliRunner()
+
+    @pytest.fixture
+    def glm_csv(self, tmp_path):
+        path = tmp_path / "glm.csv"
+        pd.DataFrame({"grup": ["A"] * 8 + ["B"] * 8,
+                      "verim": [5, 6, 5, 6, 5, 6, 5, 6,
+                                3, 4, 3, 4, 3, 4, 3, 4]}).to_csv(path, index=False)
+        return str(path)
+
+    @pytest.fixture
+    def rm_csv(self, tmp_path):
+        path = tmp_path / "rm.csv"
+        pd.DataFrame({"denek": list(range(6)),
+                      "t1": [1, 2, 3, 4, 5, 6], "t2": [2, 3, 4, 5, 6, 7],
+                      "t3": [4, 5, 6, 7, 8, 9]}).to_csv(path, index=False)
+        return str(path)
+
+    def test_cli_glm_tek_faktor(self, runner, glm_csv):
+        result = runner.invoke(cli_main, ["glm", glm_csv, "--yanit", "verim",
+                                          "--faktorler", "grup", "--posthoc", "yok"])
+        assert result.exit_code == 0
+        assert "GLM" in result.output
+
+    def test_cli_glm_tekrarli_olcum(self, runner, rm_csv):
+        result = runner.invoke(cli_main, ["glm", rm_csv, "--yanit", "yok",
+                                          "--faktorler", "denek",
+                                          "--within", "t1,t2,t3",
+                                          "--denek", "denek"])
+        assert result.exit_code == 0
+        assert "Mauchly" in result.output
+
+    def test_cli_glm_hatali_sutun(self, runner, glm_csv):
+        result = runner.invoke(cli_main, ["glm", glm_csv, "--yanit", "yok",
+                                          "--faktorler", "grup"])
+        assert result.exit_code != 0
