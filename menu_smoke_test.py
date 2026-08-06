@@ -143,6 +143,13 @@ rm_df = pd.DataFrame({
 })
 rm_df.to_csv(f"{TMP}/rm.csv", index=False)
 
+gee_df = pd.DataFrame({
+    "grup": np.repeat(np.arange(15), 6),
+    "x": rng.normal(0, 1, 90),
+    "y": rng.normal(0, 1, 90),
+})
+gee_df.to_csv(f"{TMP}/gee.csv", index=False)
+
 pd.DataFrame({"isletme": ["C1", "C2", "C3", "C4"],
               "arazi": [10, 20, 15, 12], "emek": [5, 8, 6, 4]}).to_csv(
     f"{TMP}/dea_in.csv", index=False)
@@ -231,6 +238,8 @@ FLOWS = [
      f"8\n1\n{TMP}/mlogit.csv\nkalite\nnem,protein\n0\n", "Multinomial"),
     ("[8] Regresyon", "Ordinal lojistik",
      f"8\n2\n{TMP}/mlogit.csv\nkalite\nnem\n0\n", "Ordinal"),
+    ("📈 Regresyon", "GEE (Genelleştirilmiş Tahmin Denklemleri)",
+     f"8\n3\n{TMP}/gee.csv\ny\nx\ngrup\n0\n", "GEE"),
 
     ("[9] Sınıflandırma", "Ayrımsama analizi",
      f"9\n1\n{TMP}/mlogit.csv\ngrup\nnem,protein\n0\n", "Wilks lambda"),

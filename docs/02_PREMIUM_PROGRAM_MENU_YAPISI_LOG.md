@@ -317,7 +317,7 @@ Test kaydı: `tests/test_premium_wave4.py` (75+ test).
 boşluk kalmadı. Kapsam dışı bırakılanlar yalnızca terminal ortamında
 karşılığı olmayan GUI öğeleridir: Edit/View/Window menüleri, Chart
 Builder sürükle-bırak arayüzü, Interactive grafikler, Extensions Hub.
-Kısmi kalanlar: GLM/GEE (2.5), GLMM (2.6), karmaşık anket Taylor
+Kısmi kalanlar: GLMM (2.6), karmaşık anket Taylor
 doğrusallaştırması (2.18).
 
 ## Güncelleme 5 — Kalan Boşlukların Kapatılması
@@ -341,6 +341,25 @@ CLI — `agrista/cli`:
   `[7] Tekrarlı Ölçümler (GLM)`
 
 Test kaydı: `tests/test_premium_glm.py`; menü akışları
+`menu_smoke_test.py` üzerinden `tests/test_menu_flows.py`'de
+parametrize edilir.
+
+### GEE (Generalized Estimating Equations)
+
+Analiz implementasyonu — `agrista/analysis`:
+- ✅ `gee_model` — kümelenmiş/korelasyonlu veri için marjinal model:
+  4 aile (gaussian/binomial/poisson/gamma) × 3 çalışma korelasyonu
+  (independent/exchangeable/autoregressive), population-averaged
+  katsayılar, robust (sandwich) standart hatalar, QIC; eski
+  statsmodels sürümleri için `qic()` yoksa None dönüşü
+
+CLI — `agrista/cli`:
+- ✅ `agrista gee` komutu (`--aile`, `--yapi`, `--zaman` seçenekleri);
+  çıktı yazdırıcısı `_print_gee_result`
+- ✅ Menü `[8] 📈 Regresyon` yeni öğesi:
+  `[3] GEE (Genelleştirilmiş Tahmin Denklemleri)`
+
+Test kaydı: `tests/test_premium_gee.py`; menü akışları
 `menu_smoke_test.py` üzerinden `tests/test_menu_flows.py`'de
 parametrize edilir.
 

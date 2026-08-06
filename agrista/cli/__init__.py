@@ -1043,6 +1043,7 @@ def _build_menu_structure():
         ("📈 Regresyon", [
             ("Multinomial lojistik regresyon", _menu_multinom),
             ("Ordinal lojistik regresyon (PLUM)", _menu_ordlogit),
+            ("GEE (Genelleştirilmiş Tahmin Denklemleri)", _menu_gee),
         ]),
         ("🗂️ Sınıflandırma", [
             ("Ayrımsama analizi (Discriminant)", _menu_discriminant),
@@ -1709,6 +1710,22 @@ def _menu_ordlogit():
     yanit = _ask_column(df, "Bağımlı değişken sütunu (≥3 sıralı kategori)")
     predictors = _ask_predictors(df)
     _print_ologit_result(ordinal_logistic_regression(df, yanit, predictors))
+
+
+def _menu_gee():
+    from agrista.analysis import gee_model
+
+    path = _ask_file("Veri dosyası yolu (CSV/Excel)")
+    df = _load_file(path).dataframe
+    yanit = _ask_column(df, "Bağımlı değişken sütunu")
+    degiskenler = _prompt_or_eof("Açıklayıcı değişkenler (virgülle)")
+    if not degiskenler:
+        raise click.exceptions.Abort()
+    grup = _ask_column(df, "Küme/grup sütunu")
+    result = gee_model(df, response=yanit,
+                       covariates=[c.strip() for c in degiskenler.split(",")],
+                       group_col=grup)
+    _print_gee_result(result)
 
 
 def _menu_discriminant():
