@@ -319,3 +319,28 @@ karşılığı olmayan GUI öğeleridir: Edit/View/Window menüleri, Chart
 Builder sürükle-bırak arayüzü, Interactive grafikler, Extensions Hub.
 Kısmi kalanlar: GLM/GEE (2.5), GLMM (2.6), karmaşık anket Taylor
 doğrusallaştırması (2.18).
+
+## Güncelleme 5 — Kalan Boşlukların Kapatılması
+
+### GLM (General Linear Model)
+
+Analiz implementasyonları — `agrista/analysis`:
+- ✅ `glm_univariate` — tek değişkenli faktöriyel/kovaryeteli model:
+  Tip I/II/III kareler toplamı (Sum kontrast + `anova_lm`), kısmi η²
+  efekt büyüklükleri, tek faktörde Tukey/Duncan post-hoc
+- ✅ `glm_repeated_measures` — tekrarlı ölçümler (wide format):
+  `AnovaRM` within-subject F, Mauchly küresellik testi,
+  Greenhouse-Geisser ve Huynh-Feldt ε düzeltmeleri, isteğe bağlı
+  between-faktör karşılaştırması
+
+CLI — `agrista/cli`:
+- ✅ `agrista glm` komutu (`--within` + `--denek` verilirse tekrarlı
+  ölçüm dalı çalışır); çıktı yazdırıcısı `_print_glm_result`
+- ✅ Menü `[3] ⚖️ Ortalamaların Karşılaştırılması` yeni öğeleri:
+  `[6] Genel Doğrusal Model (Tek Değişkenli)`,
+  `[7] Tekrarlı Ölçümler (GLM)`
+
+Test kaydı: `tests/test_premium_glm.py`; menü akışları
+`menu_smoke_test.py` üzerinden `tests/test_menu_flows.py`'de
+parametrize edilir.
+

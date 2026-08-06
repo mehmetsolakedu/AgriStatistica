@@ -134,6 +134,15 @@ pd.DataFrame({
 pd.DataFrame({"zaman": [0, 7, 14, 21], "siddet": [5, 20, 45, 70]}).to_csv(
     f"{TMP}/audpc.csv", index=False)
 
+rm_taban = rng.normal(0, 1, 10)
+rm_df = pd.DataFrame({
+    "denek": [f"d{i}" for i in range(10)],
+    "t1": rm_taban + rng.normal(0, 0.3, 10),
+    "t2": rm_taban + 0.5 + rng.normal(0, 0.3, 10),
+    "t3": rm_taban + 1.0 + rng.normal(0, 0.3, 10),
+})
+rm_df.to_csv(f"{TMP}/rm.csv", index=False)
+
 pd.DataFrame({"isletme": ["C1", "C2", "C3", "C4"],
               "arazi": [10, 20, 15, 12], "emek": [5, 8, 6, 4]}).to_csv(
     f"{TMP}/dea_in.csv", index=False)
@@ -144,6 +153,8 @@ pd.DataFrame({"isletme": ["C1", "C2", "C3", "C4"],
 # ---------------------------------------------------------------------------
 # Menü akışları: (kategori, işlem, başlık, girdi, beklenen çıktı)
 # ---------------------------------------------------------------------------
+
+
 def out(name):
     return os.path.join(OUT, name)
 
@@ -177,6 +188,10 @@ FLOWS = [
      f"3\n4\n{TMP}/group.csv\nverim\ngrup\n0\n", "Tukey"),
     ("[3] Ortalamalar", "Ortalama raporu",
      f"3\n5\n{TMP}/group.csv\nverim\ngrup\n0\n", "Genel:"),
+    ("[3] Ortalamalar", "Genel Doğrusal Model (Tek Değişkenli)",
+     f"3\n6\n{TMP}/group.csv\nverim\ngrup\n0\n", "GLM"),
+    ("[3] Ortalamalar", "Tekrarlı Ölçümler (GLM)",
+     f"3\n7\n{TMP}/rm.csv\nt1,t2,t3\ndenek\n0\n", "Mauchly"),
 
     ("[4] Korelasyon", "İki değişkenli korelasyon",
      f"4\n1\n{TMP}/farm.csv\npearson\n0\n", "Korelasyon Analizi"),
@@ -287,6 +302,8 @@ FLOWS = [
 # ---------------------------------------------------------------------------
 # Çalıştırma
 # ---------------------------------------------------------------------------
+
+
 def run_flows() -> list:
     """Tüm menü akışlarını çalıştırır; başarısız olan (menü, işlem, çıktı)
     üçlülerini döndürür. pytest ve betik giriş noktası tarafından paylaşılır."""

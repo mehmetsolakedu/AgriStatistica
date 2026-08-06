@@ -978,6 +978,8 @@ def _build_menu_structure():
             ("Eşleştirilmiş iki örneklem t-testi", _menu_paired),
             ("Tek yönlü ANOVA + Tukey HSD", _menu_oneway_anova),
             ("Ortalama raporu (Means)", _menu_means),
+            ("Genel Doğrusal Model (Tek Değişkenli)", _menu_glm),
+            ("Tekrarlı Ölçümler (GLM)", _menu_glm_rm),
         ]),
         ("🔗 Korelasyon", [
             ("İki değişkenli korelasyon (Pearson/Spearman)", _menu_corr),
@@ -1172,6 +1174,36 @@ def _menu_oneway_anova():
     if result["significant_at_005"]:
         click.echo("")
         _print_tukey_result(posthoc_tukey(df, yanit, grup))
+
+
+def _menu_glm():
+    from agrista.analysis import glm_univariate
+
+    path = _ask_file("Veri dosyası yolu (CSV/Excel)")
+    df = _load_file(path).dataframe
+    yanit = _ask_column(df, "Bağımlı değişken sütunu")
+    faktorler = _prompt_or_eof("Faktörler (virgülle ayrılmış)", default="")
+    if not faktorler:
+        raise click.exceptions.Abort()
+    result = glm_univariate(
+        df, response=yanit,
+        between_factors=[f.strip() for f in faktorler.split(",")])
+    _print_glm_result(result)
+
+
+def _menu_glm_rm():
+    from agrista.analysis import glm_repeated_measures
+
+    path = _ask_file("Veri dosyası yolu (CSV/Excel)")
+    df = _load_file(path).dataframe
+    within = _prompt_or_eof("Tekrarlı ölçüm sütunları (virgülle ayrılmış)")
+    if not within:
+        raise click.exceptions.Abort()
+    denek = _ask_column(df, "Denek sütunu")
+    result = glm_repeated_measures(
+        df, response_cols=[c.strip() for c in within.split(",")],
+        subject_col=denek)
+    _print_glm_result(result)
 
 
 def _menu_normality():
