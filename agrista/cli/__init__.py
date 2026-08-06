@@ -1013,6 +1013,102 @@ def twostep(filepath: str, kolonlar: str, maks_kume: int):
         click.echo(f"❌ Hata: {e}")
 
 
+def _print_svy_result(result: dict, baslik: str):
+    """Anket ortalama/toplam/oran tahminini yazdırır."""
+    click.echo(f"\n🧮 {baslik}")
+    click.echo(f"   Tahmin = {result['estimate']:.4f}  "
+               f"SE = {result['std_err']:.4f}")
+    click.echo(f"   %95 CI [{result['ci_lower']:.4f}, "
+               f"{result['ci_upper']:.4f}]")
+    if result.get("design_effect") is not None:
+        click.echo(f"   Tasarım etkisi (DEFF) = "
+                   f"{result['design_effect']:.3f}")
+    click.echo(f"   n = {result['n_obs']}, PSU = {result['n_psu']}, "
+               f"tabaka = {result['n_strata']}")
+
+
+def _print_svylogit_result(result: dict):
+    """Anket lojistik regresyon sonucunu yazdırır."""
+    click.echo(f"\n🧮 {result['model']}")
+    click.echo("   Değişken        Katsayı     SE       z       p")
+    for ad, c in result["coefficients"].items():
+        click.echo(f"   {ad[:14]:<14} {c['coefficient']:9.4f} "
+                   f"{c['std_err']:8.4f} {c['z_value']:7.3f} "
+                   f"{c['p_value']:8.4f}")
+    click.echo(f"   n = {result['n_obs']}, PSU = {result['n_psu']}")
+
+
+def _build_svy_design(df, agirlik, psu, tabaka, fpc):
+    """CLI/menü seçeneklerinden anket tasarım sözlüğü kurar."""
+    from agrista.survey import survey_design
+    return survey_design(df, weight_col=agirlik, id_col=psu,
+                         strata_col=tabaka, fpc_col=fpc)
+
+
+@main.command("svymean")
+@click.argument("filepath")
+@click.option("--degisken", required=True, help="Tahmin edilecek değişken")
+@click.option("--agirlik", default=None, help="Ağırlık sütunu")
+@click.option("--psu", default=None, help="PSU (birincil örnekleme birimi) sütunu")
+@click.option("--tabaka", default=None, help="Tabaka sütunu")
+@click.option("--fpc", default=None, help="FPC (tabaka popülasyon PSU sayısı) sütunu")
+def svymean(filepath: str, degisken: str, agirlik: str, psu: str,
+            tabaka: str, fpc: str):
+    """Anket ortalaması (Taylor linearizasyonu)."""
+    from agrista.survey import svy_mean
+    df = _load_file(filepath).dataframe
+    try:
+        design = _build_svy_design(df, agirlik, psu, tabaka, fpc)
+        result = svy_mean(design, degisken)
+    except ValueError as e:
+        raise click.ClickException(str(e))
+    _print_svy_result(result, "Anket ortalaması")
+
+
+@main.command("svyratio")
+@click.argument("filepath")
+@click.option("--pay", required=True, help="Pay değişkeni")
+@click.option("--payda", required=True, help="Payda değişkeni")
+@click.option("--agirlik", default=None, help="Ağırlık sütunu")
+@click.option("--psu", default=None, help="PSU sütunu")
+@click.option("--tabaka", default=None, help="Tabaka sütunu")
+@click.option("--fpc", default=None, help="FPC sütunu")
+def svyratio(filepath: str, pay: str, payda: str, agirlik: str, psu: str,
+             tabaka: str, fpc: str):
+    """Anket oranı (Taylor linearizasyonu)."""
+    from agrista.survey import svy_ratio
+    df = _load_file(filepath).dataframe
+    try:
+        design = _build_svy_design(df, agirlik, psu, tabaka, fpc)
+        result = svy_ratio(design, numerator=pay, denominator=payda)
+    except ValueError as e:
+        raise click.ClickException(str(e))
+    _print_svy_result(result, "Anket oranı")
+
+
+@main.command("svylogit")
+@click.argument("filepath")
+@click.option("--yanit", required=True, help="0/1 yanıt değişkeni")
+@click.option("--degiskenler", required=True, help="Virgülle ayrılmış açıklayıcılar")
+@click.option("--agirlik", default=None, help="Ağırlık sütunu")
+@click.option("--psu", required=True, help="PSU sütunu (zorunlu)")
+@click.option("--tabaka", default=None, help="Tabaka sütunu")
+@click.option("--fpc", default=None, help="FPC sütunu")
+def svylogit(filepath: str, yanit: str, degiskenler: str, agirlik: str,
+             psu: str, tabaka: str, fpc: str):
+    """Anket lojistik regresyonu (kümelenmiş robust SE)."""
+    from agrista.survey import survey_logistic
+    df = _load_file(filepath).dataframe
+    try:
+        design = _build_svy_design(df, agirlik, psu, tabaka, fpc)
+        result = survey_logistic(design, response=yanit,
+                                 predictors=[c.strip()
+                                             for c in degiskenler.split(",")])
+    except ValueError as e:
+        raise click.ClickException(str(e))
+    _print_svylogit_result(result)
+
+
 # ---------------------------------------------------------------------------
 # Etkileşimli ana menü
 # ---------------------------------------------------------------------------

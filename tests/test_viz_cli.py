@@ -521,3 +521,55 @@ class TestGlmmCli:
                                           "--sabitler", "x", "--grup", "grup",
                                           "--aile", "binomial"])
         assert result.exit_code != 0
+
+
+class TestSurveyCli:
+    """Karmaşık Örneklem CLI komutları: svymean / svyratio / svylogit."""
+
+    @pytest.fixture
+    def runner(self):
+        return CliRunner()
+
+    @pytest.fixture
+    def svy_csv(self, tmp_path):
+        rng = np.random.default_rng(3)
+        df = pd.DataFrame({
+            "psu": np.repeat(np.arange(12), 5),
+            "tabaka": np.repeat([0] * 6 + [1] * 6, 5),
+            "w": rng.uniform(0.5, 2, 60),
+            "y": rng.normal(50, 5, 60),
+            "x": rng.uniform(1, 3, 60),
+            "b": rng.integers(0, 2, 60),
+        })
+        csv = tmp_path / "svy.csv"
+        df.to_csv(csv, index=False)
+        return str(csv)
+
+    def test_cli_svymean(self, runner, svy_csv):
+        result = runner.invoke(cli_main, ["svymean", svy_csv,
+                                          "--degisken", "y",
+                                          "--agirlik", "w", "--psu", "psu",
+                                          "--tabaka", "tabaka"])
+        assert result.exit_code == 0
+        assert "Anket ortalaması" in result.output
+
+    def test_cli_svyratio(self, runner, svy_csv):
+        result = runner.invoke(cli_main, ["svyratio", svy_csv,
+                                          "--pay", "y",
+                                          "--payda", "x", "--psu", "psu"])
+        assert result.exit_code == 0
+        assert "oran" in result.output.lower()
+
+    def test_cli_svylogit(self, runner, svy_csv):
+        result = runner.invoke(cli_main, ["svylogit", svy_csv,
+                                          "--yanit", "b",
+                                          "--degiskenler", "y", "--psu",
+                                          "psu", "--agirlik", "w"])
+        assert result.exit_code == 0
+        assert "Survey Logistic" in result.output
+
+    def test_cli_svymean_eksik_psu_hatasi(self, runner, svy_csv):
+        result = runner.invoke(cli_main, ["svymean", svy_csv,
+                                          "--degisken", "y",
+                                          "--psu", "yok"])
+        assert result.exit_code != 0
