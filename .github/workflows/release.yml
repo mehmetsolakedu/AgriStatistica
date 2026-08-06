@@ -1,0 +1,74 @@
+name: Release
+
+# Etiket (v*) veya elle tetikleme ile macOS/Windows kurulum paketlerini
+# üretir, GitHub Release'e yükler ve latest.json (güncelleme kanalı) üretir.
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-latest
+            script: bash packaging/build_macos.sh
+            artifact: "dist/Agrista-*.dmg"
+          - os: windows-latest
+            setup: choco install nsis -y
+            script: powershell -File packaging/build_windows.ps1
+            artifact: "dist/Agrista-*-Setup.exe"
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install package + gui + build tools
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[gui]" pyinstaller
+      - name: Platform setup
+        if: ${{ matrix.setup != '' }}
+        run: ${{ matrix.setup }}
+      - name: Build
+        env:
+          MACOS_SIGNING_IDENTITY: ${{ secrets.MACOS_SIGNING_IDENTITY }}
+          MACOS_NOTARY_KEYCHAIN_PROFILE: ${{ secrets.MACOS_NOTARY_PROFILE }}
+        run: ${{ matrix.script }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: installer-${{ matrix.os }}
+          path: ${{ matrix.artifact }}
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          path: varliklar
+      - name: Flatten artifacts
+        run: |
+          mkdir -p release_assets
+          find varliklar -type f \( -name "*.dmg" -o -name "*.exe" \) \
+            -exec mv {} release_assets/ \;
+          ls -la release_assets
+      - name: Build latest.json
+        run: |
+          SURUM=${GITHUB_REF_NAME#v}
+          TABAN="https://github.com/${{ github.repository }}/releases/download/${GITHUB_REF_NAME}"
+          DMG=$(ls release_assets | grep '\.dmg$' | head -1)
+          EXE=$(ls release_assets | grep '\.exe$' | head -1)
+          python packaging/make_latest_json.py \
+            --version "$SURUM" --notes "${GITHUB_REF_NAME} sürümü" \
+            --macos-url "$TABAN/$DMG" --windows-url "$TABAN/$EXE" \
+            --out release_assets/latest.json
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: release_assets/*
